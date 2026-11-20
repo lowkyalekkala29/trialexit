@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildIcs, escapeText, foldLine } from '../src/ics.js';
+import { normalizeDirectory, matchByHost } from '../src/directory.js';
 import {
   savedTotals,
   transition,
@@ -95,6 +96,20 @@ test('validation rejects missing and malformed input', () => {
     'Currency is required',
   ]);
   assert.deepEqual(validateTrial(baseTrial), []);
+});
+
+test('host matching handles subdomains and rejects lookalikes', () => {
+  const entries = normalizeDirectory({
+    entries: [
+      { serviceId: 'netflix', name: 'Netflix', cancelUrl: 'https://x', domains: ['netflix.com'] },
+      { serviceId: 'prime', name: 'Prime Video', cancelUrl: 'https://y', domains: ['primevideo.com'] },
+    ],
+  });
+  assert.equal(matchByHost(entries, 'www.netflix.com')?.serviceId, 'netflix');
+  assert.equal(matchByHost(entries, 'help.netflix.com')?.serviceId, 'netflix');
+  assert.equal(matchByHost(entries, 'netflix.com.evil.test'), undefined);
+  assert.equal(matchByHost(entries, 'notnetflix.com'), undefined);
+  assert.equal(matchByHost(entries, 'primevideo.com')?.serviceId, 'prime');
 });
 
 test('display order puts critical first and cancelled last', () => {

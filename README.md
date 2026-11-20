@@ -19,8 +19,21 @@ puts the reminder, the direct cancellation URL, and the steps in one place.
 - **Calendar export** — `.ics` with UTC timestamps (no fragile `VTIMEZONE`), two alarms, and the
   cancel URL embedded in the event description, so the alert is actionable when it fires.
 - **Direct exit links** — deep links into each service's cancellation surface, verified and dated.
+- **Detection everywhere, without `<all_urls>`** — 10 known merchants auto-detect; any other site works
+  when you click the icon (`activeTab`); "Always detect here" grants one origin at a time.
 - **Honest bookkeeping** — a trial is only marked saved when *you* confirm cancellation and it
   happened before the charge. "Saved" is never inferred.
+
+## Scripts
+
+```
+npm test              # 25 tests, zero dependencies
+npm run sync          # vendor core/ + directory/ into extension/ (Chrome can't import outside its root)
+npm run icons         # regenerate PNG icons (hand-rolled PNG encoder, no image deps)
+npm run verify        # live-check every cancel URL, report only
+npm run verify:write  # apply verification results to directory.json
+npm run package       # build dist/trialexit-<version>.zip for the Web Store
+```
 
 ## Install (developer mode, until the store listing is live)
 

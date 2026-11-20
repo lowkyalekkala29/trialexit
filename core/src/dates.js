@@ -230,3 +230,26 @@ export function trialLengthDays(signupAt, renewsAt) {
   const ms = toDate(renewsAt).getTime() - toDate(signupAt).getTime();
   return Math.max(1, Math.floor(ms / DAY));
 }
+
+/**
+ * Split an instant into wall-clock parts in a given zone. Needed to pre-fill
+ * an edit form with the same values the user originally entered.
+ * @param {string} instant
+ * @param {string} timeZone
+ * @returns {{ date: string, time: string }}
+ */
+export function zonedParts(instant, timeZone) {
+  const dtf = new Intl.DateTimeFormat('en-CA', {
+    timeZone: deviceTimeZone(timeZone),
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  /** @type {Record<string,string>} */
+  const p = {};
+  for (const part of dtf.formatToParts(toDate(instant))) p[part.type] = part.value;
+  return { date: `${p.year}-${p.month}-${p.day}`, time: `${p.hour}:${p.minute}` };
+}

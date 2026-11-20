@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TrialExit — cancel the trial before it charges you</title>
+    <meta
+      name="description"
+      content="Free trial ending? TrialExit reminds you before renewal and opens the exact cancellation page. No bank access, no subscription, no account."
+    />
+    <style>
+      :root {
+        --bg: #0b1310;
+        --surface: #131f1a;
+        --line: #24352c;
+        --text: #e9f3ed;
+        --muted: #94a89c;
+        --green: #2fbf71;
+        --amber: #e0a72a;
+        --red: #e2503f;
+      }
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font: 17px/1.6 -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      }
+      .wrap { max-width: 940px; margin: 0 auto; padding: 0 22px; }
+      header { padding: 22px 0; display: flex; align-items: center; gap: 12px; }
+      .logo { width: 30px; height: 30px; border-radius: 8px; background: var(--green); display: grid; place-items: center; color: #062015; font-weight: 800; }
+      .name { font-weight: 650; letter-spacing: -0.2px; }
+      nav { margin-left: auto; display: flex; gap: 18px; font-size: 14px; }
+      nav a { color: var(--muted); text-decoration: none; }
+      nav a:hover { color: var(--text); }
+
+      .hero { padding: 56px 0 40px; }
+      h1 { font-size: clamp(32px, 5.2vw, 52px); line-height: 1.1; letter-spacing: -1.2px; margin: 0 0 18px; }
+      h1 em { color: var(--green); font-style: normal; }
+      .lede { font-size: 19px; color: var(--muted); max-width: 640px; margin: 0 0 28px; }
+      .cta { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+      .btn {
+        display: inline-block; padding: 12px 20px; border-radius: 11px;
+        background: var(--green); color: #062015; font-weight: 650; text-decoration: none;
+      }
+      .btn.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); font-weight: 500; }
+      .fine { font-size: 13px; color: var(--muted); }
+
+      section { padding: 44px 0; border-top: 1px solid var(--line); }
+      h2 { font-size: 24px; letter-spacing: -0.4px; margin: 0 0 8px; }
+      .sub { color: var(--muted); margin: 0 0 26px; max-width: 620px; }
+
+      .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+      .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+      .card h3 { margin: 0 0 6px; font-size: 16px; }
+      .card p { margin: 0; color: var(--muted); font-size: 15px; }
+
+      .demo { display: grid; gap: 10px; }
+      .row { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--green); border-radius: 12px; padding: 13px 16px; }
+      .row.amber { border-left-color: var(--amber); }
+      .row.red { border-left-color: var(--red); }
+      .row b { font-weight: 600; }
+      .row small { display: block; color: var(--muted); font-size: 13px; }
+      .left { font-variant-numeric: tabular-nums; font-weight: 700; }
+      .left.red { color: var(--red); }
+      .left.amber { color: var(--amber); }
+
+      table { width: 100%; border-collapse: collapse; font-size: 15px; }
+      th, td { text-align: left; padding: 11px 10px; border-bottom: 1px solid var(--line); }
+      th { color: var(--muted); font-weight: 500; font-size: 13px; text-transform: uppercase; letter-spacing: .05em; }
+      td.no { color: var(--muted); }
+
+      ol.steps { padding-left: 20px; margin: 0; }
+      ol.steps li { margin-bottom: 10px; }
+
+      .price { display: flex; gap: 14px; flex-wrap: wrap; }
+      .tier { flex: 1 1 260px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+      .tier.best { border-color: var(--green); }
+      .tier h3 { margin: 0 0 4px; font-size: 17px; }
+      .tier .amt { font-size: 30px; font-weight: 700; letter-spacing: -0.6px; margin: 6px 0 2px; }
+      .tier ul { margin: 12px 0 0; padding-left: 18px; color: var(--muted); font-size: 15px; }
+      .tier li { margin-bottom: 6px; }
+
+      details { border-bottom: 1px solid var(--line); padding: 14px 0; }
+      summary { cursor: pointer; font-weight: 550; }
+      details p { color: var(--muted); margin: 10px 0 0; }
+
+      footer { padding: 40px 0 60px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--line); }
+      footer a { color: var(--muted); }
+      .note { background: #1a1408; border: 1px solid #3a2c10; border-radius: 12px; padding: 14px 16px; color: #e7c67a; font-size: 14px; }
+      @media (max-width: 620px) { nav { display: none; } }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <div class="logo">✓</div>
+        <span class="name">TrialExit</span>
+        <nav>
+          <a href="#how">How it works</a>
+          <a href="#install">Install</a>
+          <a href="#pricing">Pricing</a>
+          <a href="#faq">FAQ</a>
+        </nav>
+      </header>
+
+      <div class="hero">
+        <h1>Cancel the trial <em>before</em> it charges you.</h1>
+        <p class="lede">
+          Free trials are designed to be forgotten. TrialExit reminds you two days before renewal — and
+          the reminder opens the exact cancellation page, so it takes ten seconds instead of twenty minutes
+          of hunting through settings.
+        </p>
+        <div class="cta">
+          <a class="btn" href="#install">Install for Chrome</a>
+          <a class="btn ghost" href="#how">See how it works</a>
+        </div>
+        <p class="fine" style="margin-top: 12px">
+          No bank access. No account. No subscription — charging you monthly to cancel monthly fees
+          would make us the problem.
+        </p>
+      </div>
+
+      <section id="problem">
+        <h2>The leak nobody fixes</h2>
+        <p class="sub">
+          Signing up takes two clicks. Cancelling is buried three menus deep, behind a billing portal,
+          or behind support chat. A calendar reminder only moves the problem: it interrupts you, and
+          you still have to go find the page.
+        </p>
+        <div class="grid">
+          <div class="card">
+            <h3>A reminder is not a solution</h3>
+            <p>Alerts get snoozed because there's nothing to click. The friction is the cancel flow, not the memory.</p>
+          </div>
+          <div class="card">
+            <h3>Subscription apps want your bank</h3>
+            <p>Linking an account to cancel a subscription is a big ask — and they charge monthly for it.</p>
+          </div>
+          <div class="card">
+            <h3>Auto-debit doesn't wait</h3>
+            <p>Once the mandate is live, the charge goes through on time whether or not you remembered.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="how">
+        <h2>Three steps, five seconds</h2>
+        <p class="sub">Capture at checkout. Get nudged before the charge. Cancel in one click.</p>
+        <div class="demo">
+          <div class="row red">
+            <div><b>Adobe Creative Cloud</b><small>₹1,675 renews Sat 22 Nov, 00:00 IST</small></div>
+            <div class="left red">1d 4h</div>
+          </div>
+          <div class="row amber">
+            <div><b>Netflix</b><small>₹499 renews Tue 25 Nov, 00:00 IST</small></div>
+            <div class="left amber">4d 12h</div>
+          </div>
+          <div class="row">
+            <div><b>ChatGPT Plus</b><small>₹1,999 renews Fri 5 Dec, 00:00 IST</small></div>
+            <div class="left">15d 0h</div>
+          </div>
+        </div>
+        <ol class="steps" style="margin-top: 26px">
+          <li><b>Log the trial</b> — service, renewal date and time, amount. Auto-filled when you're on a checkout page.</li>
+          <li><b>Get the alert 48 hours out</b> — 5 days for trials over two weeks, plus a ping at 24 hours. Click it and the cancel page opens.</li>
+          <li><b>Mark it done</b> — only then does it count toward your saved total. We never claim a cancellation we didn't see you confirm.</li>
+        </ol>
+      </section>
+
+      <section id="install">
+        <h2>Install</h2>
+        <p class="sub">Chrome, Edge, Brave, Arc, Opera and Vivaldi — any Chromium browser.</p>
+        <div class="grid">
+          <div class="card">
+            <h3>1 · Download</h3>
+            <p>Grab the extension from the Chrome Web Store listing.</p>
+          </div>
+          <div class="card">
+            <h3>2 · Pin it</h3>
+            <p>Click the toolbar icon and open the dashboard. Everything stays on your device.</p>
+          </div>
+          <div class="card">
+            <h3>3 · Log a trial</h3>
+            <p>Or open a checkout page — TrialExit offers to fill it in for you.</p>
+          </div>
+        </div>
+        <p class="note" style="margin-top: 16px">
+          Pre-launch: the store listing is awaiting review. Until then, install from source —
+          <code>chrome://extensions</code> → Developer mode → Load unpacked → select <code>extension/</code>.
+        </p>
+      </section>
+
+      <section id="pricing">
+        <h2>Pricing</h2>
+        <p class="sub">One payment, no recurring fee. Free while we're in launch.</p>
+        <div class="price">
+          <div class="tier">
+            <h3>Free</h3>
+            <div class="amt">₹0</div>
+            <ul>
+              <li>Up to 3 active trials</li>
+              <li>Countdown + calendar export</li>
+              <li>Direct cancel links</li>
+            </ul>
+          </div>
+          <div class="tier best">
+            <h3>Lifetime</h3>
+            <div class="amt">₹299 <span class="fine">/ $6.99</span></div>
+            <ul>
+              <li>Unlimited trials</li>
+              <li>One payment, forever</li>
+              <li>No account, no data leaving your device</li>
+            </ul>
+          </div>
+        </div>
+        <p class="fine" style="margin-top: 14px">
+          First 20 users get everything free. After that the lifetime unlock applies.
+        </p>
+      </section>
+
+      <section id="faq">
+        <h2>Questions</h2>
+        <div style="margin-top: 10px">
+          <details>
+            <summary>Do you connect to my bank?</summary>
+            <p>No, and we never will. TrialExit only stores what you type: service, date, amount. No card numbers, no bank login.</p>
+          </details>
+          <details>
+            <summary>Where is my data stored?</summary>
+            <p>In your browser, on your device. There is no account and no server holding your subscription list.</p>
+          </details>
+          <details>
+            <summary>What if the cancel link is out of date?</summary>
+            <p>Every link shows when it was last verified, and a report button files an issue. The directory is a public file, so fixes ship as pull requests rather than app releases.</p>
+          </details>
+          <details>
+            <summary>Does it work on every site?</summary>
+            <p>
+              Yes. Ten known merchants are detected automatically. On any other site, click the toolbar
+              icon and it reads that one tab. If you want zero-click detection on a site you use often,
+              press "Always detect here" and grant that site once. The extension never asks for access
+              to all websites — that permission is what makes privacy tools look like spyware.
+            </p>
+          </details>
+          <details>
+            <summary>Why a calendar export as well as a notification?</summary>
+            <p>The calendar file is what follows you to your phone. If the extension lives on your laptop, the alert still lands in the calendar app you actually look at.</p>
+          </details>
+          <details>
+            <summary>Does it cancel for me?</summary>
+            <p>No — and nothing that does so without your password should be trusted. It takes you to the exact page and tells you whether that service needs chat support.</p>
+          </details>
+        </div>
+      </section>
+
+      <footer>
+        <p>TrialExit · <a href="https://github.com/lowkyalekkala29/trialexit">Source</a> · <a href="https://github.com/lowkyalekkala29/trialexit/blob/main/PRIVACY.md">Privacy</a> · <a href="https://github.com/lowkyalekkala29/trialexit/issues">Report a broken link</a></p>
+        <p>Not affiliated with any of the services listed. Cancel links are community-maintained.</p>
+      </footer>
+    </div>
+  </body>
+</html>
