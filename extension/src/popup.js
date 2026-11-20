@@ -31,19 +31,19 @@ async function renderDetection() {
       return;
     }
 
-    const entry = res.entry;
-    const trialLikely = res.scan?.looksLikeTrial;
-    const name = entry?.name ?? res.scan?.hostname ?? 'This page';
+    const a = res.analysis;
+    const entry = a?.entry;
+    const name = entry?.name ?? a?.hostname ?? 'This page';
+    const badge = a?.phase === 'post-signup' ? 'just signed up' : a?.days ? `${a.days.days}-day trial` : 'no trial signals';
 
     detectArea.innerHTML = `
-      <div class="card" data-band="${trialLikely ? 'safe' : 'past_due'}" style="padding:11px 12px;gap:7px">
+      <div class="card" data-band="${a?.days || a?.phase === 'post-signup' ? 'safe' : 'past_due'}" style="padding:11px 12px;gap:7px">
         <div class="card-head">
           <span class="card-name" style="font-size:14px">${esc(name)}</span>
-          <span class="pill ${trialLikely ? 'ok' : ''}">${trialLikely ? 'trial page' : 'no trial signals'}</span>
+          <span class="pill ${a?.days ? 'ok' : ''}">${esc(badge)}</span>
         </div>
-        <div class="meta" style="font-size:12px">
-          ${entry ? 'Cancel link on file' : 'Not in the directory yet'}${res.scan?.price ? ` · ${esc(res.scan.price)} seen` : ''}
-        </div>
+        <div class="meta" style="font-size:12px">${esc(a?.note ?? '')}</div>
+        <div class="meta" style="font-size:12px">${entry ? 'Cancel link on file' : 'Not in the directory yet'}</div>
         <div class="actions" style="margin-top:2px">
           <button class="primary" id="track-btn" style="font-size:12px;padding:5px 9px">Log this trial</button>
           ${entry ? '' : '<button class="ghost" id="always-btn" style="font-size:12px;padding:5px 9px">Always detect here</button>'}
@@ -57,7 +57,11 @@ async function renderDetection() {
           serviceId: entry?.serviceId ?? null,
           region: entry?.region ?? null,
           serviceName: name,
-          amount: res.scan?.price ?? null,
+          amount: a?.price?.amount ?? null,
+          currency: a?.price?.currency ?? null,
+          trialLengthDays: a?.days?.days ?? null,
+          renewsAt: a?.renewsAt ?? null,
+          note: a?.note ?? null,
         },
       });
       window.close();

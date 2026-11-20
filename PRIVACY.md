@@ -17,6 +17,8 @@ There are no card numbers, no UPI IDs, no bank credentials, and no passwords.
 
 Exactly one thing: a plain HTTP GET for the public service directory JSON at `raw.githubusercontent.com`. It contains no identifiers and no information about you — it is the same request every user makes.
 
+Page text is read on-device, only on merchant domains listed in the manifest, only on the tab you click, or only on origins you explicitly granted. That text is used to guess a trial length and price, is shown to you for correction, and is never transmitted anywhere.
+
 No telemetry. No crash reporting. No advertising identifiers.
 
 ## Permissions, and why each exists

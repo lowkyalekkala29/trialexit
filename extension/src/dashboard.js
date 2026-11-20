@@ -95,8 +95,7 @@ function entryFor(trial) {
   );
 }
 
-function cardHtml(t) {
-  const now = new Date();
+function cardHtml(t, now) {
   const status = derivedStatus(t, now);
   const band = status === 'confirmed_cancelled' ? 'done' : urgency(t.renewsAt, now);
   const entry = entryFor(t);
@@ -155,7 +154,11 @@ function cardHtml(t) {
 
 function formHtml() {
   const editing = state.trials.find((t) => t.id === state.editingId) ?? null;
-  const region = editing?.region ?? state.settings.region;
+  const seedRegion =
+    state.seed?.region ??
+    (state.seed?.currency === 'USD' ? 'US' : state.seed?.currency === 'INR' ? 'IN' : null);
+  const region = editing?.region ?? seedRegion ?? state.settings.region;
+  const seedDays = Number(state.seed?.trialLengthDays) || null;
   const values = editing
     ? {
         name: editing.serviceName,
@@ -165,15 +168,24 @@ function formHtml() {
         len: editing.trialLengthDays,
         card: editing.cardLabel ?? '',
       }
-    : {
-        name: state.seed?.serviceName ?? '',
-        date: new Date(Date.now() + 7 * DAY).toISOString().slice(0, 10),
-        time: '00:00',
-        tz: deviceZone,
-        amount: state.seed?.amount ?? '',
-        len: 7,
-        card: '',
-      };
+    : state.seed?.renewsAt
+      ? {
+          name: state.seed?.serviceName ?? '',
+          ...zonedParts(state.seed.renewsAt, deviceZone),
+          tz: deviceZone,
+          amount: state.seed?.amount ?? '',
+          len: seedDays ?? 7,
+          card: '',
+        }
+      : {
+          name: state.seed?.serviceName ?? '',
+          date: new Date(Date.now() + 7 * DAY).toISOString().slice(0, 10),
+          time: '00:00',
+          tz: deviceZone,
+          amount: state.seed?.amount ?? '',
+          len: seedDays ?? 7,
+          card: '',
+        };
 
   const seen = new Set();
   const datalist = state.directory
@@ -182,6 +194,11 @@ function formHtml() {
     .join('');
   const zones = ZONES.includes(deviceZone) ? ZONES : [deviceZone, ...ZONES];
   const lengths = [7, 14, 30, 60];
+  const chosenLen = Number(values.len);
+  if (Number.isFinite(chosenLen) && !lengths.includes(chosenLen)) {
+    lengths.push(chosenLen);
+    lengths.sort((a, b) => a - b);
+  }
 
   return `
     <form class="add" id="add-form">
@@ -220,7 +237,14 @@ function formHtml() {
         <span class="hint">Alert fires 48h before renewal (5 days for trials over two weeks), plus a ping at 24h.</span>
       </div>
       <p class="error row-span" id="f-error" hidden></p>
+      ${state.seed?.note ? `<p class="hint row-span" style="margin:0">${esc(state.seed.note)}</p>` : ''}
     </form>`;
+}
+
+function cardsInner(list, now) {
+  return list.length
+    ? `<div class="cards">${list.map((t) => cardHtml(t, now)).join('')}</div>`
+    : `<div class="empty">No trials tracked.<br />Log one above — it takes about five seconds.</div>`;
 }
 
 function render() {
@@ -231,12 +255,16 @@ function render() {
     .join(' + ');
   $('#saved').innerHTML = savedText ? `Saved so far <b>${esc(savedText)}</b>` : 'Nothing charged yet.';
 
-  const list = sortedForDisplay(state.trials, now);
   $('#app').innerHTML =
-    formHtml() +
-    (list.length
-      ? `<div class="cards">${list.map(cardHtml).join('')}</div>`
-      : `<div class="empty">No trials tracked.<br />Log one above — it takes about five seconds.</div>`);
+    formHtml() + `<div id="cards-wrap">${cardsInner(sortedForDisplay(state.trials, now), now)}</div>`;
+}
+
+/** Refresh countdowns only — never the form, or typing gets wiped. */
+function renderCards() {
+  const wrap = document.getElementById('cards-wrap');
+  if (!wrap) return;
+  const now = new Date();
+  wrap.innerHTML = cardsInner(sortedForDisplay(state.trials, now), now);
 }
 
 function readForm() {
@@ -401,5 +429,5 @@ $('#unlock-apply').addEventListener('click', async () => {
       : 'That code is not valid.';
 });
 
-setInterval(render, 30_000);
+setInterval(renderCards, 30_000);
 boot();

@@ -14,7 +14,7 @@ const repo = join(root, '..');
 await mkdir(join(repo, 'extension/core'), { recursive: true });
 await mkdir(join(repo, 'extension/data'), { recursive: true });
 
-for (const file of ['types.js', 'dates.js', 'ics.js', 'store.js', 'directory.js', 'alerts.js']) {
+for (const file of ['types.js', 'dates.js', 'ics.js', 'store.js', 'directory.js', 'alerts.js', 'guess.js']) {
   await cp(join(repo, 'core/src', file), join(repo, 'extension/core', file));
 }
 

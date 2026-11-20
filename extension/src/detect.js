@@ -1,79 +1,120 @@
 /**
- * Checkout-page detector.
+ * Checkout-page detector (classic content script — cannot import modules, so it
+ * only scrapes text and asks the background worker to do the parsing).
  *
- * Runs as a classic (non-module) content script, so it cannot import the
- * directory — it asks the background worker instead. It only ever signals
- * "this page looks like a trial signup for service X"; nothing is saved until
- * the user confirms. No page content leaves the device.
+ * Nothing is saved here. It offers a suggestion; the user confirms in the
+ * dashboard, where the guessed values are visible and editable.
  */
 
-const TRIAL_SIGNALS = [
-  /\bfree trial\b/i,
-  /\b\d+\s*-?\s*day(?:s)?\s+free\b/i,
-  /\btry (?:it )?free\b/i,
-  /\bstart (?:your )?free\b/i,
-  /\bauto-?renew/i,
-  /\bthen \s*(?:₹|rs\.?|\$|usd)\s*[\d,]+/i,
-];
+const TEXT_LIMIT = 20_000;
+const SEEN_KEY = 'trialexit:hinted';
 
-/** Should this page show the "log this trial" affordance? */
-function looksLikeTrialPage() {
-  const text = (document.body?.innerText ?? '').slice(0, 20_000);
-  return TRIAL_SIGNALS.some((re) => re.test(text));
+function pageSnapshot() {
+  return {
+    text: (document.body?.innerText ?? '').slice(0, TEXT_LIMIT),
+    url: location.href,
+    title: document.title,
+    hostname: location.hostname,
+  };
 }
 
-/** Best-effort monthly price on the page, in major units. */
-function guessPrice() {
-  const text = (document.body?.innerText ?? '').slice(0, 20_000);
-  const m = /(?:₹|rs\.?|\$)\s?([\d,]+(?:\.\d{1,2})?)/i.exec(text);
-  if (!m) return null;
-  const value = Number(m[1].replace(/,/g, ''));
-  return Number.isFinite(value) ? value : null;
+function alreadyHinted() {
+  try {
+    return sessionStorage.getItem(SEEN_KEY) === location.pathname;
+  } catch {
+    return false;
+  }
 }
 
-function announce(entry) {
-  if (!entry) return;
+function markHinted() {
+  try {
+    sessionStorage.setItem(SEEN_KEY, location.pathname);
+  } catch {
+    /* storage may be unavailable; showing twice is harmless */
+  }
+}
+
+function announce(analysis) {
+  const entry = analysis.entry;
+  const name = entry?.name ?? analysis.hostname;
+  const label =
+    analysis.phase === 'post-signup'
+      ? `Trial started at ${name}?`
+      : analysis.days
+        ? `${name}: ${analysis.days.days}-day trial`
+        : `${name} trial page`;
+
   const bar = document.createElement('div');
   bar.id = 'trialexit-hint';
   bar.setAttribute(
     'style',
     [
       'position:fixed', 'z-index:2147483647', 'right:16px', 'bottom:16px',
-      'max-width:320px', 'padding:12px 14px', 'border-radius:12px',
-      'background:#12231c', 'color:#eef7f2', 'font:14px/1.4 system-ui,sans-serif',
-      'box-shadow:0 8px 28px rgba(0,0,0,.28)', 'display:flex', 'gap:10px', 'align-items:center',
+      'max-width:330px', 'padding:12px 14px', 'border-radius:12px',
+      'background:#12231c', 'color:#eef7f2', 'font:13px/1.45 system-ui,sans-serif',
+      'box-shadow:0 8px 28px rgba(0,0,0,.32)', 'display:grid', 'gap:8px',
+      'border:1px solid #26382f',
     ].join(';'),
   );
-  const label = document.createElement('span');
-  label.textContent = `${entry.name} trial detected`;
-  const btn = document.createElement('button');
-  btn.textContent = 'Track it';
-  btn.setAttribute(
+
+  const title = document.createElement('div');
+  title.textContent = label;
+  title.style.fontWeight = '600';
+
+  const note = document.createElement('div');
+  note.textContent = analysis.note;
+  note.style.color = '#93a89c';
+
+  const row = document.createElement('div');
+  row.style.display = 'flex';
+  row.style.gap = '8px';
+
+  const track = document.createElement('button');
+  track.textContent = 'Track it';
+  track.setAttribute(
     'style',
-    'all:unset;cursor:pointer;background:#2fbf71;color:#062015;padding:6px 10px;border-radius:8px;font-weight:600',
+    'all:unset;cursor:pointer;background:#2fbf71;color:#062015;padding:6px 11px;border-radius:8px;font-weight:650',
   );
-  btn.addEventListener('click', () => {
+  track.addEventListener('click', () => {
     chrome.runtime.sendMessage({
       type: 'open-dashboard',
       seed: {
-        serviceId: entry.serviceId,
-        region: entry.region,
-        serviceName: entry.name,
-        amount: guessPrice(),
+        serviceId: entry?.serviceId ?? null,
+        region: entry?.region ?? null,
+        serviceName: name,
+        amount: analysis.price?.amount ?? null,
+        currency: analysis.price?.currency ?? null,
+        trialLengthDays: analysis.days?.days ?? null,
+        renewsAt: analysis.renewsAt ?? null,
+        note: analysis.note,
       },
     });
     bar.remove();
   });
-  bar.append(label, btn);
+
+  const dismiss = document.createElement('button');
+  dismiss.textContent = 'Not now';
+  dismiss.setAttribute(
+    'style',
+    'all:unset;cursor:pointer;color:#93a89c;padding:6px 4px;font-size:12px',
+  );
+  dismiss.addEventListener('click', () => {
+    markHinted();
+    bar.remove();
+  });
+
+  row.append(track, dismiss);
+  bar.append(title, note, row);
   document.body.append(bar);
 }
 
-if (looksLikeTrialPage()) {
-  chrome.runtime.sendMessage(
-    { type: 'detect-service', hostname: location.hostname },
-    (res) => {
-      if (chrome.runtime.lastError) return;
-      if (res?.entry) announce(res.entry);
-    },
-  );
+if (!alreadyHinted()) {
+  chrome.runtime.sendMessage({ type: 'analyze-page', page: pageSnapshot() }, (res) => {
+    if (chrome.runtime.lastError || !res?.ok) return;
+    const analysis = res.analysis;
+    if (!analysis) return;
+    // Only speak up when we actually learned something.
+    if (analysis.phase === 'unknown' && !analysis.entry && !analysis.days) return;
+    announce(analysis);
+  });
 }

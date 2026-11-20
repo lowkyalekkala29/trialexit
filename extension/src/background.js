@@ -9,6 +9,7 @@
 import { normalizeDirectory, matchByHost, loadDirectory } from './core/directory.js';
 import { derivedStatus, sortedForDisplay, transition } from './core/store.js';
 import { msUntil, HOUR } from './core/dates.js';
+import { extractTrialDays, extractPrice, detectPhase, derivationNote, deriveRenewal } from './core/guess.js';
 import {
   pendingAlerts,
   alarmName,
@@ -153,20 +154,42 @@ chrome.notifications.onClicked.addListener(async (notificationId) => {
  */
 function scanPage() {
   const text = (document.body?.innerText ?? '').slice(0, 20_000);
-  const signals = [
-    /\bfree trial\b/i,
-    /\b\d+\s*-?\s*day(?:s)?\s+free\b/i,
-    /\btry (?:it )?free\b/i,
-    /\bstart (?:your )?free\b/i,
-    /\bauto-?renew/i,
-    /\bthen\s*(?:₹|rs\.?|\$|usd)\s*[\d,]+/i,
-  ];
-  const priceMatch = /(?:₹|rs\.?|\$)\s?([\d,]+(?:\.\d{1,2})?)/i.exec(text);
   return {
     hostname: location.hostname,
+    url: location.href,
     title: document.title,
-    looksLikeTrial: signals.some((re) => re.test(text)),
-    price: priceMatch ? Number(priceMatch[1].replace(/,/g, '')) : null,
+    text,
+  };
+}
+
+/**
+ * Reads a page's text into a structured, confidence-labelled guess.
+ * Every field here is a suggestion the UI must surface and the user must confirm.
+ * @param {{ text: string, url: string, title: string, hostname: string }} page
+ */
+async function analyzePage(page) {
+  const entries = await getDirectory();
+  const byHost = matchByHost(entries, page.hostname ?? '');
+  const title = String(page.title ?? '').toLowerCase();
+  const byTitle = byHost
+    ? null
+    : entries.find((e) => e.name.length > 3 && title.includes(e.name.toLowerCase())) ?? null;
+
+  const days = extractTrialDays(page.text);
+  const price = extractPrice(page.text);
+  const phase = detectPhase(page.text, page.url);
+  const entry = byHost ?? byTitle ?? null;
+
+  return {
+    hostname: page.hostname,
+    title: page.title,
+    entry,
+    phase,
+    days,
+    price,
+    // A guessed trial length is only useful with a guessed renewal date.
+    renewsAt: days ? deriveRenewal(new Date(), days.days) : null,
+    note: derivationNote({ days, price, phase }),
   };
 }
 
@@ -190,15 +213,7 @@ async function detectActiveTab() {
   }
   const scan = injection?.result;
   if (!scan) return { ok: false, reason: 'no-result' };
-
-  const entries = await getDirectory();
-  const byHost = matchByHost(entries, scan.hostname ?? '');
-  const title = String(scan.title ?? '').toLowerCase();
-  const byTitle = byHost
-    ? null
-    : entries.find((e) => e.name.length > 3 && title.includes(e.name.toLowerCase())) ?? null;
-
-  return { ok: true, scan, entry: byHost ?? byTitle ?? null };
+  return { ok: true, analysis: await analyzePage(scan) };
 }
 
 /**
@@ -228,6 +243,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     getDirectory()
       .then((entries) => sendResponse({ entry: matchByHost(entries, msg.hostname ?? '') ?? null }))
       .catch(() => sendResponse({ entry: null }));
+    return true;
+  }
+  if (msg?.type === 'analyze-page') {
+    analyzePage(msg.page ?? {})
+      .then((analysis) => sendResponse({ ok: true, analysis }))
+      .catch((err) => sendResponse({ ok: false, reason: String(err?.message ?? err) }));
     return true;
   }
   if (msg?.type === 'detect-active') {

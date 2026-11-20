@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "TrialExit",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Track free trials and get a reminder that opens the exact cancel page — before you get charged.",
   "minimum_chrome_version": "116",
   "icons": {
