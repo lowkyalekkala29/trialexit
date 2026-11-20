@@ -11,11 +11,11 @@ import { fileURLToPath } from 'node:url';
 const root = dirname(fileURLToPath(import.meta.url));
 const repo = join(root, '..');
 
-await mkdir(join(repo, 'extension/core'), { recursive: true });
+await mkdir(join(repo, 'extension/src/core'), { recursive: true });
 await mkdir(join(repo, 'extension/data'), { recursive: true });
 
 for (const file of ['types.js', 'dates.js', 'ics.js', 'store.js', 'directory.js', 'alerts.js', 'guess.js']) {
-  await cp(join(repo, 'core/src', file), join(repo, 'extension/core', file));
+  await cp(join(repo, 'core/src', file), join(repo, 'extension/src/core', file));
 }
 
 await cp(join(repo, 'directory/directory.json'), join(repo, 'extension/data/directory.json'));

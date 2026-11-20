@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TrialExit — preview</title>
+    <style>
+      .preview-bar {
+        position: fixed;
+        inset: auto 0 0 0;
+        z-index: 99;
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        justify-content: center;
+        padding: 8px 14px;
+        background: #1b2b24;
+        border-top: 1px solid #26382f;
+        font: 12px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        color: #93a89c;
+      }
+      .preview-bar b { color: #2fbf71; }
+      .preview-bar button {
+        all: unset;
+        cursor: pointer;
+        border: 1px solid #33493d;
+        border-radius: 6px;
+        padding: 3px 8px;
+        color: #e8f2ec;
+      }
+      body { padding-bottom: 48px; }
+    </style>
+  </head>
+  <body>
+    <div id="app-root">
+      <!-- The real dashboard markup, minus the extension-only bits. -->
+      <div class="wrap">
+        <header class="top">
+          <h1>TrialExit</h1>
+          <div class="saved" id="saved"></div>
+        </header>
+        <div id="app"></div>
+      </div>
+      <dialog id="paywall">
+        <h2 style="margin-top: 0; font-size: 16px">Unlock unlimited trials</h2>
+        <p class="meta">
+          The free plan tracks 3 active trials at a time. One payment, no subscription — because
+          charging a monthly fee to cancel monthly fees would make us the problem.
+        </p>
+        <label>Unlock code <input id="unlock-code" placeholder="TRIALEXIT-XXXX" /></label>
+        <div class="actions" style="margin-top: 14px">
+          <button class="primary" id="unlock-apply">Unlock</button>
+          <button class="ghost" id="unlock-close">Not now</button>
+        </div>
+        <p class="error" id="unlock-error" hidden>That code is not valid.</p>
+      </dialog>
+    </div>
+
+    <div class="preview-bar">
+      <span>Preview mode — <b>no extension installed</b>, data is local mock data</span>
+      <button id="reset-demo">Reset demo data</button>
+    </div>
+
+    <link rel="stylesheet" href="../extension/src/ui.css" />
+    <script src="shim.js"></script>
+    <script>
+      document.getElementById('reset-demo').addEventListener('click', () => {
+        localStorage.removeItem('trialexit:demo-store');
+        localStorage.removeItem('trialexit:demo-seeded');
+        location.reload();
+      });
+    </script>
+    <script type="module" src="../extension/src/dashboard.js"></script>
+  </body>
+</html>

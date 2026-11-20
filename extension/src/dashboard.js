@@ -62,6 +62,26 @@ const deviceZone = ZONES.includes(Intl.DateTimeFormat().resolvedOptions().timeZo
   ? Intl.DateTimeFormat().resolvedOptions().timeZone
   : 'Asia/Kolkata';
 
+/**
+ * The bundled directory sits at different depths depending on context:
+ * `src/data/` when loaded from src/dashboard.html, `data/` from the extension
+ * root, and `demo/data/` in the preview harness. Try each rather than guess.
+ */
+const DIRECTORY_CANDIDATES = ['data/directory.json', '../data/directory.json'];
+
+async function loadBundledDirectory() {
+  for (const url of DIRECTORY_CANDIDATES) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      return normalizeDirectory(await res.json());
+    } catch {
+      /* try the next candidate */
+    }
+  }
+  return [];
+}
+
 async function save() {
   await chrome.storage.local.set({ trials: state.trials, settings: state.settings });
   chrome.runtime.sendMessage({ type: 'refresh-badge' }).catch(() => {});
@@ -76,7 +96,7 @@ async function boot() {
 
   state.directory = got.bundledDirectory
     ? normalizeDirectory(got.bundledDirectory)
-    : normalizeDirectory(await (await fetch('data/directory.json')).json());
+    : await loadBundledDirectory();
   render();
 
   loadDirectory(state.directory).then((fresh) => {
