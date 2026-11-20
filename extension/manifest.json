@@ -1,0 +1,44 @@
+{
+  "manifest_version": 3,
+  "name": "TrialExit",
+  "version": "0.1.0",
+  "description": "Track free trials and get a reminder that opens the exact cancel page — before you get charged.",
+  "minimum_chrome_version": "116",
+  "action": {
+    "default_title": "TrialExit",
+    "default_popup": "src/popup.html"
+  },
+  "options_page": "src/dashboard.html",
+  "background": {
+    "service_worker": "src/background.js",
+    "type": "module"
+  },
+  "permissions": [
+    "storage",
+    "alarms",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://raw.githubusercontent.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.netflix.com/*",
+        "https://*.spotify.com/*",
+        "https://*.youtube.com/*",
+        "https://*.chatgpt.com/*",
+        "https://*.adobe.com/*",
+        "https://*.hotstar.com/*",
+        "https://*.primevideo.com/*",
+        "https://*.linkedin.com/*",
+        "https://*.claude.ai/*",
+        "https://*.canva.com/*"
+      ],
+      "js": [
+        "src/detect.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

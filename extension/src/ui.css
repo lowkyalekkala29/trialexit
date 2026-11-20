@@ -1,0 +1,145 @@
+:root {
+  --bg: #0d1512;
+  --surface: #14201b;
+  --surface-2: #1b2b24;
+  --line: #26382f;
+  --text: #e8f2ec;
+  --muted: #93a89c;
+  --safe: #2fbf71;
+  --soon: #e0a72a;
+  --critical: #e2503f;
+  --past: #6b7d73;
+  --radius: 14px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+}
+
+.wrap {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 28px 20px 64px;
+}
+
+header.top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+h1 { font-size: 20px; margin: 0; letter-spacing: -0.2px; }
+
+.saved {
+  font-size: 13px;
+  color: var(--muted);
+}
+.saved b { color: var(--safe); font-size: 15px; }
+
+.cards { display: grid; gap: 12px; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--safe);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  display: grid;
+  gap: 10px;
+}
+.card[data-band='soon'] { border-left-color: var(--soon); }
+.card[data-band='critical'] { border-left-color: var(--critical); }
+.card[data-band='past_due'] { border-left-color: var(--past); opacity: .85; }
+.card[data-band='done'] { border-left-color: var(--safe); opacity: .55; }
+
+.card-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.card-name { font-weight: 600; }
+.pill {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
+  padding: 2px 8px; border-radius: 999px; background: var(--surface-2); color: var(--muted);
+}
+.pill.warn { background: #3a2a12; color: #f0b64a; }
+.pill.crit { background: #3d1a16; color: #ff9384; }
+.pill.ok { background: #12301f; color: #6fe0a2; }
+
+.count { margin-left: auto; font-variant-numeric: tabular-nums; font-weight: 600; }
+.count.crit { color: var(--critical); }
+.count.soon { color: var(--soon); }
+
+.meta { color: var(--muted); font-size: 13px; }
+.amount { font-weight: 600; }
+
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+button, .btn {
+  font: inherit; cursor: pointer; border-radius: 9px;
+  padding: 7px 12px; border: 1px solid var(--line);
+  background: var(--surface-2); color: var(--text);
+  text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+}
+button:hover, .btn:hover { border-color: #3a5346; }
+button.primary, .btn.primary { background: var(--safe); color: #062015; border-color: transparent; font-weight: 600; }
+button.ghost { background: transparent; }
+button.danger { color: #ff9384; }
+
+form.add {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 20px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+form.add h2 { grid-column: 1 / -1; font-size: 15px; margin: 0; }
+
+label { display: grid; gap: 5px; font-size: 12px; color: var(--muted); }
+
+input, select {
+  font: inherit; color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 8px 10px;
+  width: 100%;
+}
+input:focus, select:focus { outline: 2px solid #2fbf71aa; outline-offset: 1px; }
+
+.row-span { grid-column: 1 / -1; }
+.hint { font-size: 12px; color: var(--muted); }
+.error { color: #ff9384; font-size: 13px; }
+
+.empty {
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  padding: 32px 20px;
+  text-align: center;
+  color: var(--muted);
+}
+
+details.steps { font-size: 13px; color: var(--muted); }
+details.steps ol { margin: 6px 0 0 18px; padding: 0; }
+
+dialog {
+  background: var(--surface); color: var(--text);
+  border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 20px; max-width: 420px;
+}
+dialog::backdrop { background: #000a; }
+
+@media (max-width: 560px) {
+  form.add { grid-template-columns: 1fr; }
+  header.top { flex-direction: column; align-items: flex-start; }
+}
+
+body.popup { width: 340px; }
+body.popup .wrap { padding: 14px; }
+body.popup .card { padding: 10px 12px; }
