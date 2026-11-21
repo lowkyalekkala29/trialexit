@@ -80,3 +80,17 @@ test('a past date without a year is past, not next year', () => {
   assert.equal(extractRenewalDate('Your plan renews on 20 Sept', now)?.date, '2026-09-20');
   assert.equal(extractRenewalDate('Trial ends on 3 Jan', new Date('2026-12-20T10:00:00Z'))?.date, '2027-01-03');
 });
+
+test('Indian AutoPay / e-mandate confirmations count', () => {
+  assert.equal(classifyTrialEmail(mail('UPI AutoPay mandate created for JioHotstar', 'Your UPI AutoPay mandate has been created successfully. Next debit on 5 Dec 2026: ₹299.')).kind, 'confirmation');
+  assert.equal(classifyTrialEmail(mail('E-mandate registered', 'Your e-mandate has been registered with HDFC Bank for Netflix.')).kind, 'confirmation');
+});
+
+test('membership and app store confirmations count', () => {
+  assert.equal(classifyTrialEmail(mail('Welcome to Prime', 'Your membership has been activated. Your free trial ends on 20 Dec.')).kind, 'confirmation');
+  assert.equal(classifyTrialEmail(mail('Your Google Play Order Receipt', 'Item: Spotify Premium (Free trial). Next billing date: 3 Dec 2026.')).kind, 'confirmation');
+});
+
+test('"subscribe now and save" stays an ad', () => {
+  assert.equal(classifyTrialEmail(mail('Subscribe now and save 50%', 'Limited time: Premium at just ₹99. Offer ends soon.')).kind, 'promo');
+});

@@ -5,7 +5,7 @@
 import { parseTrialEmail, classifyTrialEmail } from './core/guess.js';
 
 /** Bump when the rules change: older suggestions are discarded and re-scanned. */
-export const CANDIDATE_VERSION = 5;
+export const CANDIDATE_VERSION = 6;
 
 /** "Netflix <info@mailer.netflix.com>" → "Netflix" */
 export function senderName(from) {

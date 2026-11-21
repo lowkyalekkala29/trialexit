@@ -44,5 +44,14 @@ test('outlook message flattens sender, subject and html body', () => {
 });
 
 test('outlook search is a KQL OR of quoted phrases', () => {
-  assert.match(OUTLOOK_SEARCH, /^"free trial" OR "trial ends"/);
+  assert.match(OUTLOOK_SEARCH, /^"free trial" OR "/);
+  assert.ok(OUTLOOK_SEARCH.split(' OR ').length <= 20);
+});
+
+import { gmailQuery, PHRASES } from '../src/mail.js';
+test('gmail query covers subjects, phrases and known service senders', () => {
+  const q = gmailQuery(['netflix.com', 'hotstar.com']);
+  assert.match(q, /^\(subject:trial OR subject:subscription OR subject:membership OR /);
+  for (const p of ['upi autopay', 'mandate registered', 'next billing date', 'trial expires', 'google play order receipt']) assert.ok(PHRASES.includes(p), p);
+  assert.match(q, /from:netflix\.com OR from:hotstar\.com\) newer_than:60d -in:chats -in:sent$/);
 });

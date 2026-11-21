@@ -20,6 +20,7 @@ import {
 
 import { scanMailbox, disconnectMailbox, PROVIDERS, connectGmail, scanGmailAccount, disconnectGmailAccount } from './mail-scan.js';
 import { decideActivation, pageSignals } from './core/activation.js';
+import { gmailQuery } from './core/mail.js';
 import { syncTrials, pullProfile } from './cloud.js';
 import { redeemExtensionHandoff, getSession } from './auth.js';
 import { APP_URL } from './config.js';
@@ -518,8 +519,7 @@ async function handlePageScan(page, tabId) {
   return {};
 }
 
-export const GMAIL_TRIAL_SEARCH =
-  '("free trial" OR "trial ends" OR "trial period" OR "your trial" OR "subscription confirmation" OR "will automatically renew" OR "you\'ll be charged") newer_than:60d';
+export const GMAIL_TRIAL_SEARCH = gmailQuery();
 
 /** Same service, renewal within 2 days, still open: treat as the same trial. */
 function findDuplicate(trials, serviceId, serviceName, renewsAt) {

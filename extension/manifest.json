@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "TrialExit",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "Catch every free trial — from checkout pages and your Gmail — and get nudged before it charges, with a one-click cancel link.",
   "minimum_chrome_version": "116",
   "icons": {

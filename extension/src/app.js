@@ -345,8 +345,8 @@ async function previewScan(addAccount = false) {
   const day = 864e5;
   const iso = (d) => new Date(Date.now() + d * day).toISOString().slice(0, 10);
   const demo = [
-    { v: 5, messageId: 'gmail:demo1', provider: 'gmail', subject: 'Your free trial of YouTube Premium has started', serviceId: 'youtube-premium', region: 'IN', serviceName: 'YouTube Premium', renewsOn: iso(29), renewalMatched: new Date(Date.now() + 29 * day).toDateString().slice(4), amount: 149, currency: 'INR' },
-    { v: 5, messageId: 'gmail:demo2', provider: 'gmail', subject: 'Welcome to Canva Pro — your 30-day free trial', serviceId: 'canva', region: 'IN', serviceName: 'Canva Pro', renewsOn: iso(30), renewalMatched: null, amount: 499, currency: 'INR', trialLengthDays: 30 },
+    { v: 6, messageId: 'gmail:demo1', provider: 'gmail', subject: 'Your free trial of YouTube Premium has started', serviceId: 'youtube-premium', region: 'IN', serviceName: 'YouTube Premium', renewsOn: iso(29), renewalMatched: new Date(Date.now() + 29 * day).toDateString().slice(4), amount: 149, currency: 'INR' },
+    { v: 6, messageId: 'gmail:demo2', provider: 'gmail', subject: 'Welcome to Canva Pro — your 30-day free trial', serviceId: 'canva', region: 'IN', serviceName: 'Canva Pro', renewsOn: iso(30), renewalMatched: null, amount: 499, currency: 'INR', trialLengthDays: 30 },
   ];
   const got = await chrome.storage.local.get(['mailCandidates', 'settings']);
   const known = new Set((got.mailCandidates ?? []).map((c) => c.messageId));

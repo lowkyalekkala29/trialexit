@@ -10,13 +10,13 @@
  *    from a server.
  */
 import { GOOGLE_CLIENT_ID } from './config.js';
-import { GMAIL_QUERY, messageToText } from './core/mail.js';
+import { gmailQuery, messageToText } from './core/mail.js';
 import { collectCandidates } from './mail-candidates.js';
 
 const SCOPES = 'openid email https://www.googleapis.com/auth/gmail.messages.readonly';
 const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.messages.readonly';
 const TOKENS_KEY = 'trialexit:gmail-tokens';
-const MAX_MESSAGES = 40;
+const MAX_MESSAGES = 100;
 
 export function loadGis() {
   if (/** @type {any} */ (window).google?.accounts?.oauth2) return Promise.resolve();
@@ -110,8 +110,11 @@ async function gmail(email, token, path) {
   return res.json();
 }
 
-async function* messages(email, token, seen) {
-  const list = await gmail(email, token, `/messages?maxResults=${MAX_MESSAGES}&q=${encodeURIComponent(GMAIL_QUERY)}`);
+const serviceDomains = (directory) => [...new Set((directory ?? []).flatMap((e) => e.domains ?? []))];
+
+async function* messages(email, token, seen, directory) {
+  const q = gmailQuery(serviceDomains(directory));
+  const list = await gmail(email, token, `/messages?maxResults=${MAX_MESSAGES}&q=${encodeURIComponent(q)}`);
   for (const { id } of list.messages ?? []) {
     if (seen.has(`gmail:${id}`)) continue;
     yield messageToText(await gmail(email, token, `/messages/${id}?format=full`));
@@ -169,7 +172,7 @@ export async function scanGmailWeb({ interactive, addAccount = false, account = 
         continue;
       }
       try {
-        const { candidates, scanned } = await collectCandidates('gmail', messages(acc.email, token, seen), {
+        const { candidates, scanned } = await collectCandidates('gmail', messages(acc.email, token, seen, directory), {
           directory,
           trials,
           ownEmail: acc.email,

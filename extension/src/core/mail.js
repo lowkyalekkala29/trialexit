@@ -3,25 +3,36 @@
  * Email content is decoded and parsed on the user's device only.
  */
 
-const PHRASES = [
-  'free trial',
-  'trial ends',
-  'trial expires',
-  'trial will expire',
-  'trial period',
-  'your trial',
-  'trial has started',
-  'trial is ready',
-  'trial account',
-  'day trial',
-  'subscription confirmation',
-  'will automatically renew',
-  "you'll be charged",
-  'autopay',
+/**
+ * Everything that might mark a trial or a new subscription. Deliberately
+ * broad: the on-device classifier (classifyTrialEmail) drops ads afterwards.
+ */
+export const PHRASES = [
+  // trial started / running
+  'free trial', 'trial started', 'trial has started', 'trial has begun', 'trial is active', 'trial activated',
+  'trial is ready', 'trial account', 'trial period', 'your trial', 'day trial', 'days free', 'month free',
+  'first month free', 'free for 7 days', 'free for 14 days', 'free for 30 days', 'free for 1 month',
+  // trial ending
+  'trial ends', 'trial ending', 'trial expires', 'trial will expire', 'trial expiring', 'trial is ending',
+  'trial is over', 'trial will end',
+  // subscriptions & memberships
+  'subscription confirmation', 'subscription confirmed', 'subscription activated', 'subscription started',
+  'subscription is active', 'thanks for subscribing', 'thank you for subscribing', "you're subscribed",
+  'you are subscribed', 'membership confirmation', 'membership activated', 'membership is active',
+  'welcome to premium', 'welcome to plus', 'welcome to pro',
+  // billing & renewal
+  'will automatically renew', 'auto-renew', 'auto renew', 'renews on', 'will renew', 'renewal date',
+  "you'll be charged", 'you will be charged', 'will be charged', 'next billing date', 'next payment',
+  'billing date', 'first payment', 'payment method added', 'card added',
+  // India: UPI AutoPay / e-mandates / standing instructions
+  'autopay', 'auto pay', 'upi autopay', 'e-mandate', 'emandate', 'mandate registered', 'mandate created',
+  'mandate approved', 'standing instruction', 'auto-debit', 'auto debit', 'autodebit', 'recurring payment',
+  // app stores
+  'google play order receipt', 'your google play order', 'apple subscription', 'your subscription to',
 ];
 
 /** Microsoft Graph $search (KQL). Graph can't combine $search with a date filter. */
-export const OUTLOOK_SEARCH = PHRASES.map((p) => `"${p.replace(/'/g, '')}"`).join(' OR ');
+export const OUTLOOK_SEARCH = PHRASES.slice(0, 20).map((p) => `"${p.replace(/'/g, '')}"`).join(' OR ');
 
 /** Search used both by the API scan and the "open Gmail search" fallback. */
 /**
@@ -29,7 +40,17 @@ export const OUTLOOK_SEARCH = PHRASES.map((p) => `"${p.replace(/'/g, '')}"`).joi
  * trial is ready", "Welcome to your Notion trial"…), plus confirmation phrases
  * that appear in bodies. The on-device classifier then drops ads.
  */
-export const GMAIL_QUERY = `(subject:trial OR ${PHRASES.map((p) => `"${p}"`).join(' OR ')}) newer_than:60d -in:chats -in:sent`;
+export const GMAIL_QUERY = gmailQuery();
+
+/**
+ * @param {string[]} [serviceDomains] mail from known subscription services is
+ *   always worth a look (the classifier still drops their marketing)
+ */
+export function gmailQuery(serviceDomains = []) {
+  const phrases = PHRASES.map((p) => `"${p}"`);
+  const from = serviceDomains.map((d) => `from:${d}`);
+  return `(subject:trial OR subject:subscription OR subject:membership OR ${[...phrases, ...from].join(' OR ')}) newer_than:60d -in:chats -in:sent`;
+}
 
 /** @param {string} data base64url */
 export function decodeBase64Url(data) {

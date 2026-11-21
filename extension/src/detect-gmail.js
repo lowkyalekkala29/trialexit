@@ -10,8 +10,18 @@
  * device via the extension's own worker, and transmits nothing.
  */
 (() => {
-  const TRIAL_SIGNAL =
-    /free\s+trial|trial\s+(?:period|ends?|expires?|has\s+started|begins)|your\s+trial|subscription\s+confirmation|you(?:'|’)?ll\s+be\s+charged|will\s+(?:be\s+)?(?:automatically\s+)?(?:renew|charged|billed)|auto[-\s]?renew|first\s+payment|autopay\s+mandate/i;
+  const TRIAL_SIGNAL = new RegExp(
+    [
+      'free\\s+trial', '\\btrial\\b', 'days?\\s+free', 'first\\s+month\\s+free',
+      'subscription\\s+(?:has\\s+been\\s+)?(?:confirmation|confirmed|activated|started|is\\s+active)', 'thanks?\\s+(?:you\\s+)?for\\s+subscribing',
+      'membership\\s+(?:has\\s+been\\s+)?(?:confirmation|confirmed|activated|is\\s+active)', 'welcome\\s+to\\s+(?:[\\w.+-]+\\s+){0,2}(?:premium|plus|pro|prime)',
+      "you(?:'|’)?ll\\s+be\\s+charged", 'will\\s+(?:be\\s+)?(?:automatically\\s+)?(?:renew|charged|billed)', 'auto[-\\s]?renew',
+      'renews?\\s+on', 'next\\s+(?:billing|payment)', 'first\\s+payment', 'payment\\s+method\\s+added',
+      'auto\\s?pay', 'e-?mandate', 'mandate\\s+(?:registered|created|approved)', 'standing\\s+instruction', 'auto[-\\s]?debit',
+      'order\\s+receipt',
+    ].join('|'),
+    'i',
+  );
   const SEEN = new Set();
   let panel = null;
 

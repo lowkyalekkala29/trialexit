@@ -297,6 +297,14 @@ export function parseTrialEmail(text, directory, now = new Date()) {
  * ------------------------------------------------------------------------- */
 
 const CONFIRM_SIGNALS = [
+  /\b(?:subscription|membership)\s+(?:has\s+been\s+|is\s+(?:now\s+)?)?(?:activated|started|confirmed|active)\b/i,
+  /\bwelcome\s+to\s+(?:[\w.+-]+\s+){0,2}(?:premium|plus|pro|prime|gold|membership)\b/i,
+  /\byou(?:'|’)?re\s+(?:now\s+)?(?:a\s+)?(?:subscribed|member|premium\s+member)\b|\byou\s+are\s+(?:now\s+)?subscribed\b/i,
+  /\b(?:e-?mandate|mandate|standing\s+instruction|si)\s+(?:has\s+been\s+|was\s+|is\s+)?(?:registered|created|approved|activated|set\s+up|successful)\b/i,
+  /\bupi\s+auto\s?pay\b[^.\n]{0,60}\b(?:set\s+up|created|registered|approved|activated|successful)\b/i,
+  /\b(?:next|upcoming)\s+(?:billing|renewal|payment)\s+(?:date|on)\b|\brenewal\s+date\b|\brenews\s+on\b/i,
+  /\bpayment\s+method\s+(?:was\s+|has\s+been\s+)?added\b|\bcard\s+(?:was\s+|has\s+been\s+)?(?:added|saved)\b/i,
+  /\b(?:google\s+play|app\s+store|apple)\b[^.\n]{0,40}\b(?:order\s+receipt|subscription|receipt)\b/i,
   // B2B / SaaS wording: "Your TestRail trial is ready", "trial has been created"
   /\b(?:your\s+)?(?:[\w.+-]+\s+){0,3}trial\s+(?:account\s+|workspace\s+|instance\s+|site\s+)?(?:is\s+(?:now\s+)?(?:ready|live|set\s+up)|has\s+been\s+(?:created|activated|set\s+up|extended))/i,
   /\btrial\s+(?:will\s+)?(?:expire|expires|ends?|end)\s+(?:on|in)\b/i,
