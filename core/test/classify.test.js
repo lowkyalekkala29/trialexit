@@ -34,3 +34,21 @@ test('trial length counts from the email date, not today', () => {
   const r = parseTrialEmail('Welcome to Netflix! Your 7-day free trial has started.', dir, new Date('2026-11-10T10:00:00Z'));
   assert.equal(r.renewsOn, '2026-11-17');
 });
+
+test('limited-time offer that mentions a future charge is still an ad', () => {
+  const r = classifyTrialEmail(mail('Limited time offer: 3 months for ₹99', "Get Premium for just ₹99. You'll be charged ₹199/month after 3 months. Offer ends Sunday."));
+  assert.equal(r.kind, 'promo');
+});
+
+test('deal / sale subjects are ads', () => {
+  assert.equal(classifyTrialEmail(mail('Black Friday deal: 50% off Pro', 'Your trial of Pro could be yours.')).kind, 'promo');
+  assert.equal(classifyTrialEmail(mail('Only ₹49 for 2 months of Music', 'Subscribe today')).kind, 'promo');
+});
+
+test('a tie between confirmation and marketing counts as an ad', () => {
+  assert.equal(classifyTrialEmail(mail('Your account update', 'Upgrade now. Your trial ends on 5 Dec.')).kind, 'promo');
+});
+
+test('real confirmation subject wins even with an upsell in the body', () => {
+  assert.equal(classifyTrialEmail(mail('Your free trial has started', "You'll be charged on 5 Dec. Upgrade to annual and save 20%.")).kind, 'confirmation');
+});

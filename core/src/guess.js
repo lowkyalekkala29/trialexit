@@ -311,6 +311,10 @@ const PROMO_SIGNALS = [
   /\b(?:special|exclusive|introductory)\s+offer\b|\b\d{1,2}\s?%\s+off\b/i,
   /\bupgrade\s+(?:now|today|to)\b/i,
   /\bwe\s+miss\s+you\b|\bcome\s+back\b/i,
+  /\b(?:deal|sale|offer)\b/i,
+  /\b(?:only|just|at\s+just)\s+(?:₹|rs\.?|inr|\$)\s?\d/i,
+  /(?:₹|rs\.?|\$)\s?\d[\d,.]*\s+for\s+(?:\d+|one|two|three|six|twelve)\s+(?:months?|weeks?|days?)/i,
+  /\bsave\s+(?:up\s+to\s+)?(?:₹|rs\.?|\$|\d)/i,
 ];
 
 /**
@@ -319,11 +323,20 @@ const PROMO_SIGNALS = [
  */
 export function classifyTrialEmail(text) {
   const src = String(text ?? '');
-  // The subject line (first line) says the most about intent: weigh it double.
+  // The subject line (first line) says the most about intent.
   const subject = src.split('\n', 1)[0] ?? '';
   const count = (list, s) => list.reduce((n, re) => n + (re.test(s) ? 1 : 0), 0);
-  const confirm = count(CONFIRM_SIGNALS, src) + count(CONFIRM_SIGNALS, subject);
-  const promo = count(PROMO_SIGNALS, src) + count(PROMO_SIGNALS, subject);
-  const kind = confirm > 0 && confirm >= promo ? 'confirmation' : promo > 0 ? 'promo' : 'unknown';
-  return { kind, confirm, promo };
+  const subjectConfirm = count(CONFIRM_SIGNALS, subject);
+  const subjectPromo = count(PROMO_SIGNALS, subject);
+  const confirm = count(CONFIRM_SIGNALS, src) + subjectConfirm;
+  const promo = count(PROMO_SIGNALS, src) + subjectPromo;
+  let kind;
+  // The subject decides when it's clear-cut either way.
+  if (subjectPromo > 0 && subjectConfirm === 0) kind = 'promo';
+  else if (subjectConfirm > 0 && subjectPromo === 0) kind = 'confirmation';
+  // Otherwise confirmation must clearly outweigh marketing; a tie is an ad.
+  else if (confirm > promo) kind = 'confirmation';
+  else if (promo > 0) kind = 'promo';
+  else kind = 'unknown';
+  return { kind: /** @type {'confirmation'|'promo'|'unknown'} */ (kind), confirm, promo };
 }
