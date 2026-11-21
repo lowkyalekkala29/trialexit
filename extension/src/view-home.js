@@ -12,7 +12,7 @@ import { derivedStatus, savedTotals, sortedForDisplay, transition, validateTrial
 import { parseTrialEmail } from './core/guess.js';
 import { downloadIcs } from './core/ics.js';
 import { isSubscription, nextCharge, CYCLES, cycleLabel } from './core/money.js';
-import { candidateType } from './mail-candidates.js';
+import { candidateType, CANDIDATE_VERSION } from './mail-candidates.js';
 import { protectedHeroHtml, subscriptions, subCardHtml, suggestionsHtml, offerCandidates } from './view-money.js';
 
 const WHEN = [3, 7, 14, 30];
@@ -138,7 +138,7 @@ export function dashboardHtml() {
     ${mailHtml()}
     ${subFound.length ? suggestionsHtml(subFound, 'Subscriptions & cancellations found in your email') : ''}
     ${!empty && !state.settings.mailConnected?.gmail && !state.mail.candidates.length ? `<div class="banner scan-cta"><div><b>Find what's quietly charging you.</b> Scan Gmail for trials, subscriptions, cancellations and offers — read-only, read on this device, never uploaded.</div><button class="primary" data-act="mail-connect" data-provider="gmail" ${state.mail.busy ? 'disabled' : ''}>${state.mail.busy ? 'Scanning…' : 'Scan my Gmail'}</button></div>` : ''}
-    ${state.settings.mailConnected?.gmail && !state.mail.candidates.some((c) => candidateType(c) !== 'offer') ? scanStatusHtml() : ''}
+    ${state.settings.mailConnected?.gmail && ((state.settings.scannedWith ?? 0) < CANDIDATE_VERSION || !state.mail.candidates.some((c) => candidateType(c) !== 'offer')) ? scanStatusHtml() : ''}
     ${empty ? emptyStateHtml() : protectedHeroHtml()}
     ${attention.length ? `<section class="section"><div class="section-head"><h2>Needs attention</h2><span class="n">${attention.length}</span></div><div class="cards">${attention.map(cardHtml).join('')}</div></section>` : ''}
     ${renewing.length ? `<section class="section"><div class="section-head"><h2>Renewing this week</h2><span class="n">${renewing.length}</span><a class="see-all" href="#/subscriptions">All subscriptions →</a></div><div class="cards">${renewing.map(subCardHtml).join('')}</div></section>` : ''}
@@ -219,9 +219,13 @@ function ago(iso) {
 /** Gmail status line; becomes a prominent banner once the last scan is 6h+ old. */
 function scanStatusHtml() {
   const last = state.settings.mailLastScan;
-  const stale = Date.now() - (Date.parse(last ?? '') || 0) > 6 * 3_600_000;
+  const outdated = (state.settings.scannedWith ?? 0) < CANDIDATE_VERSION;
+  const stale = outdated || Date.now() - (Date.parse(last ?? '') || 0) > 6 * 3_600_000;
   const n = (state.settings.mailAccounts ?? []).length;
   const what = n > 1 ? `${n} inboxes` : 'Gmail';
+  if (outdated)
+    return `<div class="banner scan-cta"><div><b>New: we now find subscriptions, cancellations and offers too</b> — and search your inbox deeper. Scan once to update your dashboard.</div>
+    <button class="primary" data-act="mail-rescan" ${state.mail.busy ? 'disabled' : ''}>${state.mail.busy ? 'Scanning…' : 'Scan now'}</button></div>`;
   if (!stale) return `<p class="hint scan-line">✓ ${what} checked ${esc(ago(last))} · next check in about 6 hours · <button class="link" data-act="mail-rescan">Scan now</button> · <a href="#/scan-report">What did it check?</a> · <a href="#/settings/sources">Manage inboxes</a></p>`;
   return `<div class="banner scan-cta"><div><b>Check for new trials.</b> Your ${n > 1 ? 'inboxes were' : 'Gmail was'} last checked ${esc(ago(last))}.</div>
     <button class="primary" data-act="mail-rescan" ${state.mail.busy ? 'disabled' : ''}>${state.mail.busy ? 'Scanning…' : 'Scan now'}</button></div>`;

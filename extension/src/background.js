@@ -19,7 +19,7 @@ import {
 } from './core/alerts.js';
 
 import { scanMailbox, disconnectMailbox, PROVIDERS, connectGmail, scanGmailAccount, disconnectGmailAccount } from './mail-scan.js';
-import { candidateKey } from './mail-candidates.js';
+import { candidateKey, CANDIDATE_VERSION } from './mail-candidates.js';
 import { decideActivation, pageSignals } from './core/activation.js';
 import { gmailQuery } from './core/mail.js';
 import { syncTrials, pullProfile } from './cloud.js';
@@ -39,7 +39,9 @@ async function scanIfDue() {
   const { settings = {} } = await chrome.storage.local.get('settings');
   if (!Object.values(settings.mailConnected ?? {}).some(Boolean) && !(settings.mailAccounts ?? []).length) return;
   const last = Date.parse(settings.mailLastScan ?? '') || 0;
-  if (Date.now() - last < SCAN_EVERY_MS - 5 * 60_000) return;
+  // A newer scanner finds more: re-scan right away after an update.
+  const outdated = (settings.scannedWith ?? 0) < CANDIDATE_VERSION;
+  if (!outdated && Date.now() - last < SCAN_EVERY_MS - 5 * 60_000) return;
   await runMailScan({}).catch(() => {});
 }
 const SNOOZE_PREFIX = 'snooze:';
@@ -274,6 +276,7 @@ async function runMailScan({ provider = null, account = null, interactive = fals
     mailAccounts: accounts,
     mailConnected: { gmail: accounts.some((a) => a.provider === 'gmail'), outlook: accounts.some((a) => a.provider === 'outlook') },
     mailLastScan: new Date().toISOString(),
+        scannedWith: CANDIDATE_VERSION,
     mailErrors: errors,
   };
   await chrome.storage.local.set({

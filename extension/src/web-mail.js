@@ -11,7 +11,7 @@
  */
 import { GOOGLE_CLIENT_ID } from './config.js';
 import { gmailMoneyEmails } from './gmail-fetch.js';
-import { collectCandidates, candidateKey } from './mail-candidates.js';
+import { collectCandidates, candidateKey, CANDIDATE_VERSION } from './mail-candidates.js';
 
 const SCOPES = 'openid email https://www.googleapis.com/auth/gmail.messages.readonly';
 const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.messages.readonly';
@@ -190,6 +190,7 @@ export async function scanGmailWeb({ interactive, addAccount = false, account = 
         mailAccounts: [...(latest.mailAccounts ?? []).filter((a) => a.provider !== 'gmail'), ...accounts],
         mailConnected: { ...(latest.mailConnected ?? {}), gmail: accounts.length > 0 },
         mailLastScan: new Date().toISOString(),
+        scannedWith: CANDIDATE_VERSION,
         mailErrors: errors,
       },
     });

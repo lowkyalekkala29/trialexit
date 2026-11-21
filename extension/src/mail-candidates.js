@@ -7,6 +7,8 @@ import { detectCycle, addCycle } from './core/money.js';
 
 /** Bump when the rules change: older suggestions are discarded and re-scanned. */
 export const CANDIDATE_VERSION = 7;
+/** Suggestions from this version on are still valid (older ones were all trials). */
+export const MIN_KEPT_VERSION = 6;
 
 /** "Netflix <info@mailer.netflix.com>" → "Netflix" */
 export function senderName(from) {

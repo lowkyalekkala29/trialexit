@@ -22,7 +22,7 @@ import { subscriptionsHtml, cancelledHtml, offersHtml } from './view-money.js';
 import { candidateType } from './mail-candidates.js';
 import { bucket, newTrial, deviceZone } from './state.js';
 import { scanGmailWeb, disconnectGmailWeb, hasLiveGmailToken, loadGis } from './web-mail.js';
-import { CANDIDATE_VERSION } from './mail-candidates.js';
+import { CANDIDATE_VERSION, MIN_KEPT_VERSION } from './mail-candidates.js';
 import { zonedWallTimeToInstant } from './core/dates.js';
 
 const ICON = {
@@ -375,7 +375,7 @@ async function previewScan(addAccount = false) {
   const mailAccounts = accounts.some((a) => a.email === email) ? accounts : [...accounts, { provider: 'gmail', email, via: 'web', lastScan: new Date().toISOString() }];
   await chrome.storage.local.set({
     mailCandidates: [...(got.mailCandidates ?? []), ...fresh.map((c) => ({ ...c, account: email }))],
-    settings: { ...prev, mailAccounts, mailConnected: { ...(prev.mailConnected ?? {}), gmail: true }, mailLastScan: new Date().toISOString() },
+    settings: { ...prev, mailAccounts, mailConnected: { ...(prev.mailConnected ?? {}), gmail: true }, mailLastScan: new Date().toISOString(), scannedWith: CANDIDATE_VERSION },
   });
   return { ok: true, found: fresh.length };
 }
@@ -432,11 +432,11 @@ async function mailCall(type, provider = null, account = null, { auto = false } 
     const checked = typeof res.scanned === 'number' ? res.scanned : null;
     const none =
       checked === 0
-        ? 'No trial-related emails in the last 60 days.'
+        ? 'No trial or subscription emails in the last 60 days.'
         : checked
-          ? `Checked ${checked} trial-related email${checked > 1 ? 's' : ''} — none look like a trial you started.`
+          ? `Checked ${checked} email${checked > 1 ? 's' : ''} — nothing new to add.`
           : 'No new trials found in your email.';
-    toast((res.found ? `Found ${res.found} trial${res.found > 1 ? 's' : ''} in your email.` : `${none} See "What did it check?" for details.`) + tap);
+    toast((res.found ? `Found ${res.found} new item${res.found > 1 ? 's' : ''} in your email — trials, subscriptions or offers.` : `${none} See "What did it check?" for details.`) + tap);
   }
   render();
   return res;
@@ -629,8 +629,8 @@ async function boot() {
   state.mail.candidates = got.mailCandidates ?? [];
   // Suggestions from an older scanner (e.g. before ads were filtered out):
   // drop them and forget which emails were seen, so the next scan re-checks.
-  if (state.mail.candidates.some((c) => (c.v ?? 1) < CANDIDATE_VERSION)) {
-    state.mail.candidates = state.mail.candidates.filter((c) => (c.v ?? 1) >= CANDIDATE_VERSION);
+  if (state.mail.candidates.some((c) => (c.v ?? 1) < MIN_KEPT_VERSION)) {
+    state.mail.candidates = state.mail.candidates.filter((c) => (c.v ?? 1) >= MIN_KEPT_VERSION);
     await chrome.storage.local.set({ mailCandidates: state.mail.candidates, mailSeen: [] });
   }
   state.mutedHosts = got.mutedHosts ?? [];
@@ -663,7 +663,9 @@ async function boot() {
 }
 
 const SCAN_EVERY_MS = 6 * 60 * 60_000;
-const scanIsDue = () => Date.now() - (Date.parse(state.settings.mailLastScan ?? '') || 0) > SCAN_EVERY_MS - 5 * 60_000;
+const scanIsDue = () =>
+  (state.settings.scannedWith ?? 0) < CANDIDATE_VERSION ||
+  Date.now() - (Date.parse(state.settings.mailLastScan ?? '') || 0) > SCAN_EVERY_MS - 5 * 60_000;
 
 /**
  * Web: scan Gmail right after login and then every 6 hours while the app is
