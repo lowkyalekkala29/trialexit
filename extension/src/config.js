@@ -26,3 +26,6 @@ export const OUTLOOK_CLIENT_ID = '';
 export const EXTENSION_ID = 'mkkpnhiokdmpjlkapkhhiifpefgjegbp';
 
 export const CLOUD_ENABLED = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
+
+/** Mailboxes the extension can scan. Outlook appears only once its Entra app ID is set. */
+export const MAIL_PROVIDERS = OUTLOOK_CLIENT_ID ? ['gmail', 'outlook'] : ['gmail'];

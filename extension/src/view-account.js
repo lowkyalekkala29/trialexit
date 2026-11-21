@@ -3,7 +3,7 @@
  */
 import { state, esc, IS_WEB, money, bucket, combinedIcs, deviceZone, save } from './state.js';
 import { logoHtml } from './brand.js';
-import { CLOUD_ENABLED } from './config.js';
+import { CLOUD_ENABLED, MAIL_PROVIDERS } from './config.js';
 import { NUDGES } from './core/reminders.js';
 import { savedTotals, derivedStatus } from './core/store.js';
 import { formatMoney, formatRenewalLocal } from './core/dates.js';
@@ -92,9 +92,9 @@ function sourcesTab() {
       <div class="switch-row"><span><b>Gmail</b><span class="hint">${gm ? `Connected${state.settings.mailLastScan ? ` · last scan ${esc(new Date(state.settings.mailLastScan).toLocaleString())}` : ''}` : 'Not connected'}</span></span>
       <span class="actions"><button class="sm ${gm ? '' : 'primary'}" data-act="mail-connect" data-provider="gmail">${state.mail.busy ? 'Scanning…' : gm ? 'Scan now' : 'Connect & scan'}</button>${gm ? '<button class="sm ghost" data-act="mail-disconnect" data-provider="gmail">Disconnect</button>' : ''}</span></div>
       ${state.mail.error ? `<p class="error">${esc(state.mail.error)}</p>` : ''}
-      <p class="hint">Outlook scanning is in the Chrome extension.</p></div>
+      ${MAIL_PROVIDERS.includes('outlook') ? '<p class="hint">Outlook scanning is in the Chrome extension.</p>' : ''}</div>
       <div class="card-block"><h2>Chrome extension</h2>
-      <p class="hint">The extension catches trials the moment you sign up on any website, and scans Gmail &amp; Outlook for trials started on your phone. Sign in to it with the same account and everything syncs here.</p>
+      <p class="hint">The extension catches trials the moment you sign up on any website, and scans Gmail for trials started on your phone. Sign in to it with the same account and everything syncs here.</p>
       <a class="btn primary" href="../install.html" target="_blank" rel="noopener">Get TrialExit for Chrome</a></div>
       <div class="card-block"><h2>Paste an email</h2><p class="hint">On any device: Add trial → Paste email.</p><button data-act="add-open" data-tab="paste">Paste a confirmation email</button></div>`;
   }
@@ -103,7 +103,7 @@ function sourcesTab() {
       ${sw('s-watch', state.settings.watchCheckouts !== false, 'Watch checkout pages on every site', 'Pages are checked on this device only; nothing you browse is uploaded or stored.')}</div>
       ${state.mutedHosts.length ? `<p class="hint">Never asked on: ${state.mutedHosts.map(esc).join(', ')} <button class="link" data-act="s-unmute">Ask again everywhere</button></p>` : ''}</div>
     <div class="card-block"><h2>Email</h2><p class="hint">Read-only. Emails are read on this device and never uploaded. Rescans every 6 hours.</p>
-      ${['gmail', 'outlook'].map((p) => `<div class="switch-row"><span><b>${PROVIDER_LABEL[p]}</b><span class="hint">${conn[p] ? 'Connected' : 'Not connected'}</span></span>${conn[p] ? `<span class="actions"><button class="sm" data-act="mail-rescan">Scan now</button><button class="sm ghost" data-act="mail-disconnect" data-provider="${p}">Disconnect</button></span>` : `<button class="sm primary" data-act="mail-connect" data-provider="${p}">${state.mail.busy === p ? 'Scanning…' : 'Connect'}</button>`}</div>`).join('')}
+      ${MAIL_PROVIDERS.map((p) => `<div class="switch-row"><span><b>${PROVIDER_LABEL[p]}</b><span class="hint">${conn[p] ? 'Connected' : 'Not connected'}</span></span>${conn[p] ? `<span class="actions"><button class="sm" data-act="mail-rescan">Scan now</button><button class="sm ghost" data-act="mail-disconnect" data-provider="${p}">Disconnect</button></span>` : `<button class="sm primary" data-act="mail-connect" data-provider="${p}">${state.mail.busy === p ? 'Scanning…' : 'Connect'}</button>`}</div>`).join('')}
       ${state.mail.error ? `<p class="error">${esc(state.mail.error)}</p>` : ''}
       ${state.settings.mailLastScan ? `<p class="hint">Last scan ${esc(new Date(state.settings.mailLastScan).toLocaleString())}</p>` : ''}</div>`;
 }
@@ -111,7 +111,7 @@ function sourcesTab() {
 function planTab() {
   const s = state.settings;
   return `<div class="card-block plan-card"><div class="plan-head"><div><span class="pill ok">current plan</span><h2>Launch — free</h2></div><div class="price">₹0</div></div>
-    <ul class="ticks left"><li>Unlimited trials during launch</li><li>Checkout detection, Gmail &amp; Outlook scanning</li><li>Email, desktop and calendar reminders</li><li>Early users keep a free lifetime plan when paid plans start</li></ul></div>
+    <ul class="ticks left"><li>Unlimited trials during launch</li><li>Checkout detection and Gmail scanning</li><li>Email, desktop and calendar reminders</li><li>Early users keep a free lifetime plan when paid plans start</li></ul></div>
     <div class="card-block"><h2>Lifetime unlock</h2><p class="hint">One payment, no subscription — charging monthly to cancel monthly fees would make us the problem. ₹299 / $6.99, coming soon.</p>
     ${s.unlocked ? '<p class="banner">Unlocked ✓ — thank you!</p>' : `<div class="inline-form"><input id="s-licence" placeholder="Licence key"><button data-act="s-licence">Apply</button></div><p class="error" id="s-licence-err" hidden></p>`}</div>`;
 }
@@ -139,7 +139,7 @@ export function settingsHtml(tab = 'profile') {
 /* ------------------------------------------------------------------- help */
 
 const FAQ = [
-  ['How does TrialExit find my trials?', 'Three ways: the Chrome extension notices when you start a trial on any website; it can scan Gmail or Outlook (read-only, on your device) for trial confirmation emails; and you can add or paste one yourself.'],
+  ['How does TrialExit find my trials?', 'Three ways: the Chrome extension notices when you start a trial on any website; it can scan Gmail (read-only, on your device) for trial confirmation emails; and you can add or paste one yourself.'],
   ['When will I be reminded?', '2 days, 1 day, 6 hours and 1 hour before the charge (plus 5 days for trials longer than two weeks), and once after the renewal time to ask what happened. Change this in Settings → Notifications.'],
   ['Do you cancel for me?', "No — and you shouldn't trust anything that does without your password. We open the exact cancel page and show the steps, so it takes a minute."],
   ['Is my data safe?', 'We never ask for bank or card access. Emails and web pages are read on your device and never uploaded. Your trial list is stored in your account so it syncs and so email reminders can be sent.'],

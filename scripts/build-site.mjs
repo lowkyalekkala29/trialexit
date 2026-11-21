@@ -20,6 +20,7 @@ await cp(join(repo, 'landing/index.html'), join(out, 'index.html'));
 await cp(join(repo, 'PRIVACY.md'), join(out, 'privacy.md'));
 await cp(join(repo, 'landing/privacy.html'), join(out, 'privacy.html'));
 await cp(join(repo, 'landing/terms.html'), join(out, 'terms.html'));
+await cp(join(repo, 'landing/og.png'), join(out, 'og.png'));
 await cp(join(repo, 'extension/icons'), join(out, 'icons'), { recursive: true });
 
 for (const f of ['app.js', 'state.js', 'auth.js', 'cloud.js', 'config.js', 'view-auth.js', 'view-onboarding.js', 'view-home.js', 'view-account.js', 'web-mail.js', 'mail-candidates.js', 'licence.js', 'brand.js', 'ui.css']) {

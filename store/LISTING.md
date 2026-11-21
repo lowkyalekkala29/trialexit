@@ -8,7 +8,7 @@ Upload: `dist/trialexit-<version>.zip` from `npm run package`.
 **Name:** TrialExit
 
 **Summary (≤132 chars):**
-Catches every free trial you start — on any site, in Gmail or Outlook — and nudges you before they charge, with a one-click cancel link.
+Catches every free trial you start — on any site and in Gmail — and nudges you before they charge, with a one-click cancel link.
 
 **Category:** Productivity  **Language:** English
 
@@ -19,7 +19,7 @@ Free trials are built to be forgotten. You hand over your card for a 7-day trial
 TrialExit fixes the part a calendar reminder doesn't: when the alert fires, one click opens the service's actual cancellation page — not the homepage, not a help article.
 
 HOW IT WORKS
-• Catch every trial: connect Gmail or Outlook (read-only) and TrialExit finds trial confirmation emails — including trials started on your phone or in app stores. It also spots trials on checkout pages as you sign up.
+• Catch every trial: connect Gmail (read-only) and TrialExit finds trial confirmation emails — including trials started on your phone or in app stores. It also spots trials on checkout pages as you sign up.
 • Get nudged as the charge gets closer: 2 days, 1 day, 6 hours and 1 hour before (plus a 5-day heads-up on long trials), and a morning digest of what renews this week.
 • Click the notification → the exact cancel page opens. Afterwards, TrialExit asks "Did it renew?" so every trial ends as cancelled, kept or charged — nothing slips through.
 
@@ -60,9 +60,8 @@ Help users remember to cancel free trials before they renew, by tracking renewal
 | notifications | Shows the renewal reminder. Clicking it opens that service's cancellation page. |
 | activeTab | Lets the user press "Track a trial on this page" on a tab that was open before the extension was installed. |
 | scripting | Injects the trial-detection function into the active tab only after the user clicks "Check this page", and registers the detector on a single site only when the user presses "Always detect here" and grants that site. |
-| identity | Lets the user sign in to Google or Microsoft when they press "Connect Gmail" / "Connect Outlook", to grant read-only mailbox access used to find trial confirmation emails. |
+| identity | Lets the user sign in to Google when they press "Connect Gmail", to grant read-only mailbox access (gmail.messages.readonly) used to find trial confirmation emails. |
 | Host permission: gmail.googleapis.com, oauth2.googleapis.com | After the user connects Gmail, searches their mailbox (read-only) for free-trial confirmation emails; oauth2.googleapis.com is used only to revoke the token on disconnect. Email content is processed on the device and never transmitted elsewhere. |
-| Host permission: graph.microsoft.com | Same as above for Outlook / Microsoft 365 mailboxes, via Microsoft Graph Mail.Read. |
 | Content script on mail.google.com | Reads only the email the user currently has open, to offer "Track this trial" when it is a trial confirmation. Processed on-device; nothing is transmitted. |
 | Host permission: raw.githubusercontent.com | Downloads the public JSON list of cancellation links (no user data is sent) so broken links can be fixed without an extension update. |
 | Host permissions + content script on all http(s) sites | The extension's single purpose is catching free trials when the user starts them, and trials are sold on thousands of different sites, so a fixed list cannot work. On each page the script checks locally for trial/checkout wording and payment forms; ordinary pages are left alone after that check. Only trial checkout and "trial started" pages are parsed, on-device, to prefill the service, end date and price for the user to confirm. No page content is transmitted or stored. Users can switch detection off or mute any site. |

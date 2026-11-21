@@ -9,6 +9,7 @@
 import { state, esc, IS_WEB, services, serviceById, deviceZone, quickTrial, save, combinedIcs, bucket } from './state.js';
 import { logoHtml } from './brand.js';
 import { NUDGES } from './core/reminders.js';
+import { MAIL_PROVIDERS } from './config.js';
 import { downloadIcs } from './core/ics.js';
 import { formatCountdown, msUntil } from './core/dates.js';
 
@@ -90,7 +91,7 @@ export function onboardingHtml(step) {
           <div><b>Checkout detection</b> <span class="pill ok">on</span>
             <p class="hint">When you start a trial on any website, you'll see "Trial started — track it?" with the date and price filled in.</p></div>
         </div>
-        ${['gmail', 'outlook']
+        ${MAIL_PROVIDERS
           .map(
             (p) => `<div class="source-card ${conn[p] ? 'ok' : ''}">
           <div class="source-icon">${p === 'gmail' ? '📧' : '📨'}</div>

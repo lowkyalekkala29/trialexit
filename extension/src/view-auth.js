@@ -15,7 +15,7 @@ function sideHtml() {
       <div>
         <h2>Never pay for a free trial you forgot to cancel.</h2>
         <ul class="ticks">
-          <li>Catches trials as you sign up — on any website, and in Gmail or Outlook</li>
+          <li>Catches trials as you sign up — on any website, and in your Gmail</li>
           <li>Nudges at 2 days, 1 day, 6 hours and 1 hour before the charge</li>
           <li>One click opens the exact cancel page</li>
           <li>No bank access. Your email is read on your device, never uploaded.</li>
