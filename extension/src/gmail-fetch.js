@@ -22,7 +22,7 @@ const LOOKS_RELEVANT = new RegExp(
   'i',
 );
 /** At most this many sweep matches are read in full per scan. */
-const MAX_SWEEP_READS = 150;
+const MAX_SWEEP_READS = 100;
 
 const RECENT_QUERY = 'newer_than:60d -in:sent -in:chats -in:spam -in:trash';
 
@@ -30,7 +30,30 @@ const RECENT_QUERY = 'newer_than:60d -in:sent -in:chats -in:spam -in:trash';
  * @param {(path: string) => Promise<any>} api
  * @param {{ seen: Set<string>, directory?: any[], maxRecent?: number, maxDirect?: number }} opts
  */
-export async function* gmailMoneyEmails(api, { seen, directory = [], maxRecent = 300, maxDirect = 100 }) {
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const RETRYABLE = /gmail-(?:429|5\d\d)|Failed to fetch|NetworkError|network/i;
+
+/**
+ * Gmail allows ~250 quota units per second per user (a message read costs 5),
+ * so reads are paced and a "slow down" answer is retried with backoff instead
+ * of failing the whole scan. Lost access ("expired", "scope-not-granted") is
+ * never retried.
+ */
+function patient(api) {
+  return async (path) => {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await api(path);
+      } catch (err) {
+        if (attempt >= 4 || !RETRYABLE.test(String(err?.message ?? err))) throw err;
+        await wait(800 * 2 ** attempt + Math.random() * 400);
+      }
+    }
+  };
+}
+
+export async function* gmailMoneyEmails(rawApi, { seen, directory = [], maxRecent = 300, maxDirect = 100 }) {
+  const api = patient(rawApi);
   const list = async (q, max) => {
     const out = [];
     let pageToken = '';
@@ -48,9 +71,10 @@ export async function* gmailMoneyEmails(api, { seen, directory = [], maxRecent =
   const direct = picked.size;
 
   const recent = (await list(RECENT_QUERY, maxRecent)).filter((id) => !picked.has(id) && !seen.has(`gmail:${id}`));
-  for (let i = 0; i < recent.length; i += 8) {
+  for (let i = 0; i < recent.length; i += 5) {
+    if (i) await wait(150);
     const metas = await Promise.all(
-      recent.slice(i, i + 8).map((id) =>
+      recent.slice(i, i + 5).map((id) =>
         api(`/messages/${id}?format=metadata&metadataHeaders=Subject&metadataHeaders=From`).catch(() => null),
       ),
     );
@@ -61,8 +85,21 @@ export async function* gmailMoneyEmails(api, { seen, directory = [], maxRecent =
     }
   }
 
+  let read = 0;
+  let failedReads = 0;
   for (const id of picked) {
     if (seen.has(`gmail:${id}`)) continue;
-    yield messageToText(await api(`/messages/${id}?format=full`));
+    let msg;
+    try {
+      msg = await api(`/messages/${id}?format=full`);
+    } catch (err) {
+      const why = String(err?.message ?? err);
+      // Lost access stops the scan; anything else skips just this one email.
+      if (!RETRYABLE.test(why) && !/^gmail-\d+$/.test(why)) throw err;
+      if (++failedReads > 20 && failedReads > read) throw err;
+      continue;
+    }
+    read++;
+    yield messageToText(msg);
   }
 }

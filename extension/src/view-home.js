@@ -191,7 +191,7 @@ export function inboxesHtml({ compact = false } = {}) {
       const err = errs[a.email];
       const label = a.provider === 'gmail' ? 'Gmail' : 'Outlook';
       const status = err
-        ? `<span class="error" style="font-size:12px">${esc(err === 'expired' || err === 'account-changed' ? 'Needs you to sign in again' : 'Last scan failed')}</span>`
+        ? `<span class="error" style="font-size:12px">${esc(err === 'expired' || err === 'account-changed' || err === 'no-token' ? 'Needs you to sign in again — press Reconnect' : err === 'gmail-429' ? 'Gmail asked us to slow down — scan again in a minute' : err === 'scope-not-granted' ? 'Read access not given — press Reconnect and keep the Gmail box ticked' : `Last scan failed (${err})`)}</span>`
         : `<span class="hint">${a.lastScan ? `Checked ${esc(ago(a.lastScan))}` : 'Connected'}</span>`;
       return `<div class="switch-row inbox"><span><b>${esc(a.email)}</b><span class="hint">${label}</span>${status}</span>
         <span class="actions"><button class="sm" data-act="mail-rescan" data-provider="${a.provider}" data-account="${esc(a.email)}" ${busy ? 'disabled' : ''}>${err ? 'Reconnect' : 'Scan'}</button>

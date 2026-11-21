@@ -354,6 +354,7 @@ function mailError(provider, reason) {
   if (r === 'needs-consent') return `Press Scan ${name} to allow read-only access again.`;
   if (r === 'google-unavailable') return "Couldn't load Google's sign-in. Check your connection or ad-blocker, then try again.";
   if (r === 'expired') return `${name} sign-in expired — connect again.`;
+  if (r === 'gmail-429') return `${name} asked us to slow down. Wait a minute, then press Scan again.`;
   if (r === 'no-token' || /did not approve|cancel|access_denied|user/i.test(r)) return `${name} sign-in was cancelled.`;
   return `Couldn't reach ${name} (${r}).`;
 }

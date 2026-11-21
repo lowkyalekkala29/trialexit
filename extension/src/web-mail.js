@@ -102,6 +102,8 @@ async function gmail(email, token, path) {
   }
   if (res.status === 403) {
     const body = await res.text().catch(() => '');
+    // Gmail also answers 403 when we read too fast: that's a "slow down", not missing access.
+    if (/rateLimitExceeded|userRateLimitExceeded|quotaExceeded|RATE_LIMIT/i.test(body)) throw new Error('gmail-429');
     if (/SERVICE_DISABLED|accessNotConfigured|has not been used|is disabled/i.test(body)) throw new Error('gmail-api-disabled');
     throw new Error('scope-not-granted');
   }
