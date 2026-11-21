@@ -2,9 +2,9 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#f6f7f9" />
-    <meta name="description" content="Track free trials and cancel them before you get charged. No account, no bank access." />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="description" content="Catch every free trial before it charges you. Reminders with a one-click cancel link. No bank access." />
     <title>TrialExit</title>
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" href="icons/icon-32.png" />
@@ -12,29 +12,9 @@
     <link rel="stylesheet" href="ui.css" />
   </head>
   <body>
-    <div class="wrap">
-      <header class="top">
-        <a class="brand" href="../"><span class="mark">✓</span><h1>TrialExit</h1></a>
-        <div class="top-right"><div class="saved" id="saved"></div><div id="top-actions"></div></div>
-      </header>
-      <div id="web-banner"></div>
-      <div id="app"></div>
-    </div>
-    <dialog id="paywall">
-      <h2 style="margin-top: 0; font-size: 16px">Unlock unlimited trials</h2>
-      <p class="meta">
-        The free plan tracks 3 active trials at a time. One payment, no subscription — because
-        charging a monthly fee to cancel monthly fees would make us the problem.
-      </p>
-      <label>Unlock code <input id="unlock-code" placeholder="TRIALEXIT-XXXX" /></label>
-      <div class="actions" style="margin-top: 14px">
-        <button class="primary" id="unlock-apply">Unlock</button>
-        <button class="ghost" id="unlock-close">Not now</button>
-      </div>
-      <p class="error" id="unlock-error" hidden>That code is not valid.</p>
-    </dialog>
+    <div id="root"><div class="boot">Loading…</div></div>
     <script src="platform.js"></script>
-    <script type="module" src="dashboard.js"></script>
+    <script type="module" src="app.js"></script>
     <script type="module" src="reminders.js"></script>
   </body>
 </html>

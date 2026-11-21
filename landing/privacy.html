@@ -1,0 +1,67 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Privacy — TrialExit</title>
+<style>body{margin:0;background:#f6f7f9;color:#111827;font:16px/1.65 -apple-system,'Segoe UI',system-ui,sans-serif}main{max-width:760px;margin:0 auto;padding:32px 20px 80px}
+a{color:#16a34a}h1{font-size:30px;letter-spacing:-.5px}h2{font-size:19px;margin-top:32px}table{border-collapse:collapse;width:100%;font-size:14px;background:#fff}td,th{border:1px solid #e4e7eb;padding:8px 10px;text-align:left;vertical-align:top}code{background:#eef0f3;padding:1px 5px;border-radius:5px;font-size:.9em}
+.top{display:flex;align-items:center;gap:9px;text-decoration:none;color:#111827;font-weight:700}.mk{width:26px;height:26px;border-radius:7px;background:#16a34a;color:#fff;display:grid;place-items:center}</style></head>
+<body><main><a class="top" href="./"><span class="mk">✓</span>TrialExit</a><h1>Privacy</h1>
+<p>Last updated: 21 November 2026</p>
+<p>TrialExit has no analytics, no ads and no trackers, and never asks for bank or card access.</p>
+<h2>What is stored</h2>
+<p><b>Your trial list:</b> service name, renewal date, time and timezone, renewal amount and currency, an optional label you write yourself (e.g. &quot;HDFC card&quot;), how the trial was added, and its status (open, cancelled, kept, charged).</p>
+<p><b>Your account</b> (web app, and the extension if you sign in): your email address, your name if you give one, currency, timezone and reminder choices.</p>
+<p>Where it lives:</p>
+<ul>
+<li><b>On your device</b> — always (browser / extension storage), so the app works offline.
+<li><b>In your account</b> — when you are signed in, so it syncs between devices and so reminder emails can be sent while your browser is closed. Account data is stored with Supabase (database hosting, Mumbai region), protected so that each account can only ever read its own rows.
+<li>The extension can be used without an account; then nothing is stored on any server.
+</ul>
+<p>There are no card numbers, no UPI IDs, no bank credentials and no passwords (sign-in is through Google, Microsoft or a one-time email code).</p>
+<h2>Reminder emails</h2>
+<p>If email reminders are on, we send you emails about your own trials through our email provider (Brevo). The email contains the service name, amount, renewal date and links to cancel or update the trial. The one-click buttons in those emails are signed so they only work for that trial and expire after 14 days. Turn email reminders off any time in Settings → Notifications.</p>
+<h2>Email access (optional, Gmail and Outlook)</h2>
+<p>If — and only if — you press <b>Connect Gmail</b> or <b>Connect Outlook</b>, TrialExit asks for <b>read-only</b> access to your mailbox (<code>gmail.readonly</code> / Microsoft Graph <code>Mail.Read</code>). It uses that access for one purpose: finding emails that confirm a free trial or subscription, so they can be offered to you as trials to track.</p>
+<ul>
+<li>The extension searches only for trial and subscription phrases (e.g. &quot;free trial&quot;, &quot;trial ends&quot;, &quot;will automatically renew&quot;) in the last 60 days.
+<li>Matching emails are downloaded <b>directly from Google / Microsoft into the extension on your device</b> and parsed there. Email content is <b>never sent to any TrialExit server</b> or to any third party.
+<li>Only the result is stored locally: service name, guessed end date, price, the email&#x27;s subject line and message ID (so the same email is not suggested twice). Email bodies are not stored.
+<li>Nothing is ever sent, deleted, labelled or modified in your mailbox.
+<li><b>Disconnect</b> in the dashboard revokes the token. You can also revoke access at myaccount.google.com/permissions or account.live.com/consent/Manage.
+</ul>
+<p>TrialExit&#x27;s use and transfer of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
+<h2>Gmail page detector</h2>
+<p>On <code>mail.google.com</code>, a content script reads <b>only the email you have open</b> to offer &quot;Track this trial&quot;. It runs on your device and transmits nothing.</p>
+<h2>What leaves your device</h2>
+<ul>
+<li>A plain HTTP GET for the public service directory JSON at <code>raw.githubusercontent.com</code>. It contains no identifiers and no information about you — it is the same request every user makes.
+<li>If you are signed in: your trial list and settings, sent to your account (Supabase) over HTTPS so they sync and so reminder emails can be sent.
+<li>If you connected email: requests from your browser to Google / Microsoft&#x27;s own APIs, authenticated as you, to read trial emails as described above. Those requests go to the provider, not to us.
+</ul>
+<p>To catch trials as you start them, a small script runs on the websites you visit. On an ordinary page it checks the address and visible text for trial or checkout wording (e.g. &quot;free trial&quot;, &quot;start your trial&quot;, a card form), finds none, and does nothing else. Only when a page looks like a trial checkout or a &quot;your trial has started&quot; page is its text parsed — inside the extension, on your device — to guess the service, trial length and price, which are shown to you for confirmation. Page content is never transmitted anywhere and never stored; only a trial you confirm is saved. You can turn this off in the dashboard, or choose &quot;Never on this site&quot; for any site.</p>
+<p>No telemetry. No crash reporting. No advertising identifiers.</p>
+<h2>Permissions, and why each exists</h2>
+<table>
+<tr><th>Permission</th><th>Why</th></tr>
+<tr><td><code>storage</code></td><td>Save your trials locally</td></tr>
+<tr><td><code>alarms</code></td><td>Schedule the alert before renewal</td></tr>
+<tr><td><code>notifications</code></td><td>Show the alert</td></tr>
+<tr><td><code>activeTab</code>, <code>scripting</code></td><td>&quot;Track a trial on this page&quot; from the toolbar, on tabs opened before install</td></tr>
+<tr><td>host access to all sites + content script on all sites</td><td>Detect trial checkouts and &quot;trial started&quot; pages as described above, on-device only</td></tr>
+<tr><td>host access to <code>raw.githubusercontent.com</code></td><td>Refresh the cancel-link directory</td></tr>
+<tr><td><code>identity</code></td><td>Sign in to Google / Microsoft when you press Connect Gmail / Outlook</td></tr>
+<tr><td>host access to <code>gmail.googleapis.com</code>, <code>graph.microsoft.com</code>, <code>oauth2.googleapis.com</code></td><td>Read trial emails (read-only) after you connect, and revoke access on disconnect</td></tr>
+<tr><td>content script on <code>mail.google.com</code></td><td>Offer to track the trial in the email you have open</td></tr>
+</table>
+<h2>What is never done</h2>
+<ul>
+<li>Cancelling a subscription on your behalf
+<li>Sending page content anywhere, or storing it
+<li>Sharing or selling any data, because none is collected
+</ul>
+<h2>Your rights and removing your data</h2>
+<ul>
+<li><b>Export</b> everything (JSON or CSV) in Settings → Data &amp; privacy.
+<li><b>Delete your account</b> in Settings → Data &amp; privacy — this permanently deletes your account and every trial on our servers and on that device.
+<li>Uninstalling the extension deletes its local storage.
+<li>We never sell or share your data, and never use it for advertising.
+</ul>
+<h2>Changes</h2>
+<p>Any change to this policy will appear as a commit in the public repository, which is the version you are running.</p></main></body></html>

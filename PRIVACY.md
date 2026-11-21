@@ -1,17 +1,35 @@
 # Privacy
 
-TrialExit has no backend, no analytics, and no account. This is a short document because there is very little to disclose.
+Last updated: 21 November 2026
+
+TrialExit has no analytics, no ads and no trackers, and never asks for bank or card access.
 
 ## What is stored
 
-Only what you type into the extension, kept in your browser's local extension storage:
+**Your trial list:** service name, renewal date, time and timezone, renewal amount and currency, an
+optional label you write yourself (e.g. "HDFC card"), how the trial was added, and its status
+(open, cancelled, kept, charged).
 
-- service name, region, renewal date and time, timezone
-- renewal amount and currency
-- an optional label you write yourself (e.g. "HDFC card")
-- whether you marked a trial as cancelled
+**Your account** (web app, and the extension if you sign in): your email address, your name if you
+give one, currency, timezone and reminder choices.
 
-There are no card numbers, no UPI IDs, no bank credentials, and no passwords.
+Where it lives:
+
+- **On your device** — always (browser / extension storage), so the app works offline.
+- **In your account** — when you are signed in, so it syncs between devices and so reminder emails can
+  be sent while your browser is closed. Account data is stored with Supabase (database hosting,
+  Mumbai region), protected so that each account can only ever read its own rows.
+- The extension can be used without an account; then nothing is stored on any server.
+
+There are no card numbers, no UPI IDs, no bank credentials and no passwords (sign-in is through
+Google, Microsoft or a one-time email code).
+
+## Reminder emails
+
+If email reminders are on, we send you emails about your own trials through our email provider
+(Brevo). The email contains the service name, amount, renewal date and links to cancel or update the
+trial. The one-click buttons in those emails are signed so they only work for that trial and expire
+after 14 days. Turn email reminders off any time in Settings → Notifications.
 
 ## Email access (optional, Gmail and Outlook)
 
@@ -22,8 +40,7 @@ finding emails that confirm a free trial or subscription, so they can be offered
 - The extension searches only for trial and subscription phrases (e.g. "free trial", "trial ends",
   "will automatically renew") in the last 60 days.
 - Matching emails are downloaded **directly from Google / Microsoft into the extension on your device**
-  and parsed there. Email content is **never sent to any TrialExit server** — there is none — or to any
-  third party.
+  and parsed there. Email content is **never sent to any TrialExit server** or to any third party.
 - Only the result is stored locally: service name, guessed end date, price, the email's subject line and
   message ID (so the same email is not suggested twice). Email bodies are not stored.
 - Nothing is ever sent, deleted, labelled or modified in your mailbox.
@@ -42,6 +59,7 @@ It runs on your device and transmits nothing.
 ## What leaves your device
 
 - A plain HTTP GET for the public service directory JSON at `raw.githubusercontent.com`. It contains no identifiers and no information about you — it is the same request every user makes.
+- If you are signed in: your trial list and settings, sent to your account (Supabase) over HTTPS so they sync and so reminder emails can be sent.
 - If you connected email: requests from your browser to Google / Microsoft's own APIs, authenticated as you, to read trial emails as described above. Those requests go to the provider, not to us.
 
 To catch trials as you start them, a small script runs on the websites you visit. On an ordinary page
@@ -74,9 +92,13 @@ No telemetry. No crash reporting. No advertising identifiers.
 - Sending page content anywhere, or storing it
 - Sharing or selling any data, because none is collected
 
-## Removing your data
+## Your rights and removing your data
 
-Uninstalling the extension deletes its storage. You can also remove individual trials in the dashboard.
+- **Export** everything (JSON or CSV) in Settings → Data & privacy.
+- **Delete your account** in Settings → Data & privacy — this permanently deletes your account and
+  every trial on our servers and on that device.
+- Uninstalling the extension deletes its local storage.
+- We never sell or share your data, and never use it for advertising.
 
 ## Changes
 

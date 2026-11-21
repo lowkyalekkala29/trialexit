@@ -76,10 +76,12 @@ function friendly(err) {
 
 /** @param {(path:string)=>void} go */
 export function authActions(go, afterSignIn) {
+  // Read inputs BEFORE re-rendering: the busy re-render replaces the form.
+  const val = (id) => /** @type {HTMLInputElement|null} */ (document.getElementById(id))?.value?.trim() ?? '';
   const run = async (fn) => {
     state.auth.busy = true;
     state.auth.error = '';
-    go(null);
+    document.querySelectorAll('.auth button').forEach((b) => (/** @type {HTMLButtonElement} */ (b).disabled = true));
     try {
       await fn();
     } catch (err) {
@@ -109,20 +111,22 @@ export function authActions(go, afterSignIn) {
       await save();
       go('#/onboarding/1');
     },
-    'form:email': () =>
-      run(async () => {
-        const email = /** @type {HTMLInputElement} */ (document.getElementById('auth-email')).value.trim().toLowerCase();
+    'form:email': () => {
+      const email = val('auth-email').toLowerCase();
+      return run(async () => {
         if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new Error('Enter a valid email address');
         state.auth.email = email;
         await sendCode(email);
         state.auth.stage = 'code';
-      }),
-    'form:verify': () =>
-      run(async () => {
-        const code = /** @type {HTMLInputElement} */ (document.getElementById('auth-code')).value.trim();
+      });
+    },
+    'form:verify': () => {
+      const code = val('auth-code');
+      return run(async () => {
         const s = await verifyCode(state.auth.email, code);
         state.auth.stage = 'start';
         await afterSignIn(s);
-      }),
+      });
+    },
   };
 }

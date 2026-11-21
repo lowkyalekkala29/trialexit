@@ -1,5 +1,5 @@
 /**
- * Web reminders.
+ * Web reminders (in-tab browser notifications).
  *
  * A web page cannot wake itself up, so browser notifications here only fire
  * while a TrialExit tab is open. The dependable channels on the web are the
@@ -30,7 +30,8 @@ function markFired(set) {
 
 async function check() {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
-  const { trials = [] } = await chrome.storage.local.get('trials');
+  const { trials = [], settings = {} } = await chrome.storage.local.get(['trials', 'settings']);
+  const skip = new Set(settings.reminderSkip ?? []);
   const now = new Date();
   const done = fired();
   for (const t of trials) {
@@ -40,7 +41,7 @@ async function check() {
       (a) => new Date(a.at).getTime() <= now.getTime(),
     );
     const latest = due.at(-1);
-    if (!latest) continue;
+    if (!latest || skip.has(latest.kind)) continue;
     const key = `${t.id}:${latest.kind}`;
     if (done.has(key)) continue;
     done.add(key);
@@ -58,31 +59,5 @@ async function check() {
   markFired(done);
 }
 
-function renderBanner() {
-  const el = document.getElementById('web-banner');
-  if (!el) return;
-  const canNotify = 'Notification' in window;
-  const granted = canNotify && Notification.permission === 'granted';
-  if (document.body.classList.contains('is-onboarding')) {
-    el.innerHTML = '';
-    return;
-  }
-  el.innerHTML = `<div class="banner">
-    <div>
-      Trials are saved in this browser. For nudges when this tab is closed, use
-      <b>Calendar</b> on each trial, or <a href="../#install">get the Chrome extension</a> — it also finds trials in your Gmail.
-    </div>
-    ${canNotify && !granted && Notification.permission !== 'denied'
-      ? '<button class="btn" id="enable-notify">Enable tab alerts</button>'
-      : ''}</div>`;
-  document.getElementById('enable-notify')?.addEventListener('click', async () => {
-    await Notification.requestPermission();
-    renderBanner();
-    check();
-  });
-}
-
-renderBanner();
-new MutationObserver(renderBanner).observe(document.body, { attributes: true, attributeFilter: ['class'] });
 check();
 setInterval(check, 60_000);

@@ -20,6 +20,7 @@ import {
 
 import { scanMailbox, disconnectMailbox, PROVIDERS } from './mail-scan.js';
 import { decideActivation, pageSignals } from './core/activation.js';
+import { syncTrials } from './cloud.js';
 
 const ALARM_PREFIX = 'trial:';
 const MAIL_ALARM = 'mail-scan';
@@ -113,7 +114,8 @@ async function refreshBadge(trials) {
  */
 async function resyncAlarms() {
   const trials = await getTrials();
-  const wanted = new Map(pendingAlerts(trials).map((a) => [alarmName(a), a]));
+  const { settings } = await chrome.storage.local.get('settings');
+  const wanted = new Map(pendingAlerts(trials, new Date(), { skip: settings?.reminderSkip ?? [] }).map((a) => [alarmName(a), a]));
 
   const existing = await chrome.alarms.getAll();
   for (const alarm of existing) {
@@ -242,8 +244,16 @@ async function runMailScan(provider, interactive) {
   return { ok: true, found: fresh.length };
 }
 
+const SYNC_ALARM = 'cloud-sync';
+let syncDebounce = 0;
+function scheduleSync() {
+  clearTimeout(syncDebounce);
+  syncDebounce = setTimeout(() => syncTrials().catch(() => {}), 2000);
+}
+
 chrome.runtime.onInstalled.addListener(async (details) => {
   await chrome.alarms.create('badge-refresh', { periodInMinutes: 30 });
+  await chrome.alarms.create(SYNC_ALARM, { periodInMinutes: 30 });
   await ensureDigest();
   if (details.reason === 'install') chrome.runtime.openOptionsPage();
   await refreshBadge();
@@ -252,6 +262,8 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 
 chrome.runtime.onStartup.addListener(async () => {
   await ensureDigest();
+  await chrome.alarms.create(SYNC_ALARM, { periodInMinutes: 30 });
+  scheduleSync();
   await refreshBadge();
   await resyncAlarms();
 });
@@ -260,6 +272,10 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'badge-refresh') {
     refreshBadge();
     resyncAlarms();
+    return;
+  }
+  if (alarm.name === SYNC_ALARM) {
+    syncTrials().catch(() => {});
     return;
   }
   if (alarm.name === MAIL_ALARM) {
@@ -274,7 +290,10 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 });
 
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area !== 'local' || !changes.trials) return;
+  if (area !== 'local') return;
+  if (changes.settings && JSON.stringify(changes.settings.newValue?.reminderSkip) !== JSON.stringify(changes.settings.oldValue?.reminderSkip)) resyncAlarms();
+  if (!changes.trials) return;
+  scheduleSync();
   refreshBadge(changes.trials.newValue);
   resyncAlarms();
 });
@@ -474,6 +493,7 @@ async function addTrialFromDetector(input) {
     trialLengthDays: days,
     status: 'active',
     createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
     cancelledAt: null,
     cancelUrlUsed: null,
     source: input.source ?? 'detector',
