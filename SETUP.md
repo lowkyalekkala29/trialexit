@@ -1,5 +1,30 @@
 # Launch setup — the parts only the owner can do
 
+## 0. Backend (Supabase) — DONE
+
+Project `trialexit` (ref `tbascuhwmmuvkyscwunq`, Mumbai) is live:
+schema + row-level security (verified: users can't read, edit or forge each other's rows),
+sign-up trigger, 15-minute reminder cron, and edge functions `send-reminders`, `trial-action`,
+`delete-account`. Internal secrets are generated inside the database (`private.app_config`).
+
+Remaining dashboard switches (Supabase → your project):
+
+1. **Authentication → Emails → "Magic Link" template**: make the body show the code, e.g.
+   `Your TrialExit code is <b>{{ .Token }}</b>. It expires in 10 minutes.` (the app signs in with this 6-digit code).
+2. **Authentication → Emails → SMTP settings**: turn on custom SMTP with Brevo
+   (host `smtp-relay.brevo.com`, port 587, your Brevo SMTP login/key). Supabase's built-in sender only
+   allows a couple of emails per hour — fine for testing, not for users.
+3. **Authentication → URL configuration**: Site URL = where the web app is hosted (e.g.
+   `https://trialexit.vercel.app/app/`); add redirect URLs for that and
+   `https://<EXTENSION_ID>.chromiumapp.org/**`.
+4. **Authentication → Sign In / Providers**: enable **Google** (Google Cloud → OAuth client type
+   "Web application", redirect `https://tbascuhwmmuvkyscwunq.supabase.co/auth/v1/callback`) and
+   **Azure** (Entra app, same callback URL). Until then, email-code sign-in works on its own.
+5. **Edge Functions → Secrets**: `BREVO_API_KEY` = your Brevo API key. Then in the SQL editor:
+   `update private.app_config set value = 'TrialExit <you@yourdomain.com>' where name = 'mail_from';`
+   `update private.app_config set value = 'https://trialexit.vercel.app' where name = 'app_url';`
+   Reminder emails start on the next 15-minute run.
+
 Everything here is free except the one-time $5 Chrome Web Store registration.
 Order matters: the store gives you the extension's permanent ID, and both OAuth
 clients are tied to that ID.
