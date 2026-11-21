@@ -43,6 +43,24 @@
     return out;
   }
 
+  // Another tab (e.g. the one opened by the email sign-in link) changed the
+  // data: reload it and tell listeners, like chrome.storage does.
+  window.addEventListener('storage', (e) => {
+    if (e.key !== STORE_KEY) return;
+    let next = {};
+    try {
+      next = JSON.parse(e.newValue ?? '{}') ?? {};
+    } catch {
+      return;
+    }
+    const changes = {};
+    for (const k of new Set([...Object.keys(store), ...Object.keys(next)])) {
+      if (JSON.stringify(store[k]) !== JSON.stringify(next[k])) changes[k] = { oldValue: store[k], newValue: next[k] };
+    }
+    store = next;
+    for (const fn of listeners) fn(changes, 'local');
+  });
+
   const noop = async () => {};
   globalThis.chrome = {
     storage: {

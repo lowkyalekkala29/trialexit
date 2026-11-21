@@ -301,6 +301,12 @@ addEventListener('focus', () => runSync());
 
 chrome.storage.onChanged?.addListener((changes, area) => {
   if (area !== 'local') return;
+  // Signed in from another tab (email link) while this one waits on "check your inbox".
+  if (changes.session?.newValue && !state.session && document.querySelector('.auth')) {
+    location.hash = '#/';
+    location.reload();
+    return;
+  }
   if (changes.settings?.newValue) state.settings = { ...state.settings, ...pickWorkerFields(changes.settings.newValue) };
   if (changes.mailCandidates) state.mail.candidates = changes.mailCandidates.newValue ?? [];
   if (changes.trials && JSON.stringify(changes.trials.newValue) !== JSON.stringify(state.trials)) {

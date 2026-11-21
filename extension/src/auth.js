@@ -120,7 +120,18 @@ export async function signInWithProvider(provider) {
 
 /** Web only: after the OAuth redirect lands back on the app. */
 export async function completeRedirect() {
-  if (IS_EXTENSION || !location.hash.includes('access_token=')) return null;
+  if (IS_EXTENSION) return null;
+  if (/[#&]error(_description)?=/.test(location.hash)) {
+    const p = new URLSearchParams(location.hash.replace(/^#/, ''));
+    history.replaceState(null, '', location.pathname + '#/signin');
+    const code = p.get('error_code') ?? '';
+    throw new Error(
+      /expired/.test(code + p.get('error_description'))
+        ? 'That sign-in link has expired or was already used. Enter your email to get a new one.'
+        : p.get('error_description')?.replace(/\+/g, ' ') || 'Sign-in failed. Please try again.',
+    );
+  }
+  if (!location.hash.includes('access_token=')) return null;
   const session = await finishFromHash(location.hash);
   history.replaceState(null, '', location.pathname + '#/');
   return session;

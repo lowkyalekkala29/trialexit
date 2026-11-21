@@ -18,14 +18,20 @@ export function authHtml(mode) {
   const body =
     a.stage === 'code'
       ? `<form class="auth-form" data-form="verify">
-          <p class="lede" style="margin:0">We sent an email to <b>${esc(a.email)}</b>. Enter the 6-digit code from it${CLOUD_ENABLED ? ' — or just click the sign-in link in that email' : ''}. It expires in 1 hour. Check spam if you don't see it.</p>
+          ${CLOUD_ENABLED
+            ? `<div class="mail-sent"><div class="mail-icon">✉️</div>
+               <p style="margin:0">We sent a sign-in link to <b>${esc(a.email)}</b>.</p>
+               <p class="lede" style="margin:0"><b>Open that email and click the link</b> — you'll come back here signed in. It can take a minute; check spam or promotions. The link expires in 1 hour.</p></div>
+               <details class="more"><summary>My email shows a 6-digit code instead</summary>`
+            : ''}
           ${CLOUD_ENABLED ? '' : '<p class="banner" style="margin:0">Preview mode: no email is sent. Enter any 6 digits.</p>'}
           <label>Verification code
-            <input id="auth-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="\\d{6}" placeholder="123456" required autofocus />
+            <input id="auth-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="\\d{6}" placeholder="123456" required ${CLOUD_ENABLED ? '' : 'autofocus'} />
           </label>
           <button class="primary block" type="submit" ${a.busy ? 'disabled' : ''}>${a.busy ? 'Checking…' : 'Verify and continue'}</button>
+          ${CLOUD_ENABLED ? '</details>' : ''}
           <div class="row-between"><button type="button" class="link" data-act="auth-back">Use a different email</button>
-          <button type="button" class="link" data-act="auth-resend">Resend code</button></div>
+          <button type="button" class="link" data-act="auth-resend">Resend email</button></div>
         </form>`
       : `${providerButtons()}
         <form class="auth-form" data-form="email">
@@ -52,7 +58,7 @@ export function authHtml(mode) {
     <main class="auth-main">
       <div class="auth-card">
         <div class="brand mobile-only"><span class="mark">✓</span><span class="brand-name">TrialExit</span></div>
-        <h1>${a.stage === 'code' ? 'Check your email' : signup ? 'Create your account' : 'Welcome back'}</h1>
+        <h1>${a.stage === 'code' ? 'Check your inbox' : signup ? 'Create your account' : 'Welcome back'}</h1>
         <p class="lede">${a.stage === 'code' ? '' : signup ? 'Start catching trials in under a minute. No password needed.' : 'Sign in to see your trials.'}</p>
         ${a.error ? `<p class="error" role="alert">${esc(a.error)}</p>` : ''}
         ${body}

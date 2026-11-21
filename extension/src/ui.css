@@ -433,3 +433,7 @@ input.switch:focus { outline: 3px solid #16a34a33; }
   .page-head .actions { width: 100%; }
 }
 @media (max-width: 760px) { #toast { bottom: calc(78px + env(safe-area-inset-bottom)); } }
+.mail-sent { display: grid; gap: 8px; justify-items: center; text-align: center; padding: 18px; border: 1px solid #bbf7d0; background: var(--brand-soft); border-radius: 14px; }
+.mail-icon { font-size: 30px; }
+.auth-form details.more { display: grid; gap: 10px; }
+.auth-form details.more[open] { display: grid; gap: 10px; }
