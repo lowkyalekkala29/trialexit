@@ -73,6 +73,16 @@ function render() {
   const previewBar = preview && IS_WEB ? '<div class="preview-bar">Preview mode — sign-in is simulated and data stays in this browser.</div>' : '';
 
   if (r.path === '/signin' || r.path === '/signup') {
+    // Re-check which sign-in options are on whenever this screen shows, so a
+    // provider switched on in Supabase appears without a hard reload.
+    if (Date.now() - (state.auth.providersAt ?? 0) > 15_000) {
+      state.auth.providersAt = Date.now();
+      getProviders().then((p) => {
+        const changed = JSON.stringify(p) !== JSON.stringify(state.auth.providers);
+        state.auth.providers = p;
+        if (changed && document.querySelector('.auth')) render();
+      });
+    }
     document.title = r.path === '/signin' ? 'Sign in — TrialExit' : 'Create account — TrialExit';
     root.innerHTML = previewBar + authHtml(r.path === '/signin' ? 'signin' : 'signup');
     return afterRender();
@@ -348,10 +358,6 @@ async function boot() {
   }
   lastProfile = profileSnapshot();
   render();
-  getProviders().then((p) => {
-    state.auth.providers = p;
-    if (document.querySelector('.auth')) render();
-  });
   refreshDirectory(render);
   runSync();
 }
