@@ -84,13 +84,18 @@ function providerButtons() {
 
 function friendly(err) {
   const m = String(err?.message ?? err);
-  if (/rate|too many|security purposes/i.test(m)) return 'Too many attempts — wait a minute and try again.';
+  if (/email rate limit|over_email_send/i.test(m)) return "We've hit our hourly email limit. Please try again in a little while — or continue with Google or Microsoft.";
+  if (/security purposes|only request this after/i.test(m)) return 'We just sent you an email — please wait a minute before asking for another.';
+  if (/rate|too many/i.test(m)) return 'Too many attempts — wait a minute and try again.';
   if (/expired|invalid|otp/i.test(m)) return 'That code is wrong or expired. Check the latest email, or resend.';
   if (/fetch|network/i.test(m)) return "Can't reach the server. Check your connection.";
   if (/provider is not enabled|unsupported provider/i.test(m)) return 'That sign-in option is not switched on yet — use your email.';
   if (/signups not allowed/i.test(m)) return 'New sign-ups are paused right now. Try again later.';
   return m;
 }
+
+const COOLDOWN_MS = 60_000;
+const cooldownLeft = () => Math.max(0, Math.ceil(((state.auth.sentAt ?? 0) + COOLDOWN_MS - Date.now()) / 1000));
 
 /** @param {(path:string)=>void} go */
 export function authActions(go, afterSignIn) {
@@ -121,7 +126,10 @@ export function authActions(go, afterSignIn) {
     },
     'auth-resend': () =>
       run(async () => {
+        const wait = cooldownLeft();
+        if (wait) throw new Error(`Please wait ${wait}s before asking for another email.`);
         await sendCode(state.auth.email);
+        state.auth.sentAt = Date.now();
         state.auth.error = '';
       }),
     'auth-skip': async () => {
@@ -133,8 +141,14 @@ export function authActions(go, afterSignIn) {
       const email = val('auth-email').toLowerCase();
       return run(async () => {
         if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new Error('Enter a valid email address');
+        // Same address within the cooldown: the email is already on its way.
+        if (email === state.auth.email && cooldownLeft()) {
+          state.auth.stage = 'code';
+          return;
+        }
         state.auth.email = email;
         await sendCode(email);
+        state.auth.sentAt = Date.now();
         state.auth.stage = 'code';
       });
     },
