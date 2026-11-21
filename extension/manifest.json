@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "TrialExit",
-  "version": "0.8.3",
+  "version": "0.8.4",
   "description": "Stop losing money to forgotten trials and subscriptions: warned before every charge, with a one-click cancel link. Offers too.",
   "minimum_chrome_version": "116",
   "icons": {
@@ -67,7 +67,7 @@
     "scopes": [
       "openid",
       "email",
-      "https://www.googleapis.com/auth/gmail.messages.readonly"
+      "https://www.googleapis.com/auth/gmail.readonly"
     ]
   },
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArfZ5twjUaFPbGgUgM+H7X2SnZquvK7Cmo1FM+oTKCCYu2N/0/K0nmL5Uq5fiaD0i9bNNr6Sj3uaWzNJDNI1jogDQ702VYJinT0hMkQ/J2VBCef7mncQ/m31af6NSLMJ4Amva/7yRdRHpOWKNPjW3wD6fK82hq7U6nUnWGHqaSUGyZvkfyo+1Bo7gS98XiBRX/50qapirUAAuUgYKdvd9QQaaMNYzpwHVj3Blh5msCG2TiTVhJj3aBjsvuymTVh9PSFg95TTG7tWi3MbTl2W5Lb+3/MEDoIDxAa7S6weVw7Bsd0kesgMOdh6IH61FitPr4zTn/ZftEni99J3awqao9QIDAQAB",

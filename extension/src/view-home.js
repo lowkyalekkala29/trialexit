@@ -193,7 +193,7 @@ export function inboxesHtml({ compact = false } = {}) {
   const busy = state.mail.busy;
   const rows = accounts
     .map((a) => {
-      const err = errs[a.email];
+      const err = errs[a.email] ? String(errs[a.email]).split('|')[0] : '';
       const label = a.provider === 'gmail' ? 'Gmail' : 'Outlook';
       const status = err
         ? `<span class="error" style="font-size:12px">${esc(err === 'expired' || err === 'account-changed' || err === 'no-token' ? 'Needs you to sign in again — press Reconnect' : err === 'gmail-429' ? 'Gmail asked us to slow down — scan again in a minute' : err === 'scope-not-granted' ? 'Read access not given — press Reconnect and keep the Gmail box ticked' : `Last scan failed (${err})`)}</span>`

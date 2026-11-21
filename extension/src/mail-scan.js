@@ -26,7 +26,7 @@ const LOOKBACK_MS = 60 * 864e5;
  * Access tokens live in storage for at most an hour; there are no refresh
  * tokens and no server copy.
  */
-const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.messages.readonly';
+const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
 const GMAIL_SCOPES = ['openid', 'email', GMAIL_SCOPE];
 const TOKENS_KEY = 'gmailTokens';
 
@@ -153,7 +153,12 @@ async function gmailApi(account, token, path) {
     const body = await res.text().catch(() => '');
     // Gmail also answers 403 when we read too fast: that's a "slow down", not missing access.
     if (/rateLimitExceeded|userRateLimitExceeded|quotaExceeded|RATE_LIMIT/i.test(body)) throw new Error('gmail-429');
-    throw new Error(/SERVICE_DISABLED|accessNotConfigured|has not been used|is disabled/i.test(body) ? 'gmail-api-disabled' : 'scope-not-granted');
+    if (/SERVICE_DISABLED|accessNotConfigured|has not been used|is disabled/i.test(body)) throw new Error('gmail-api-disabled');
+    if (account.via === 'chrome') await chrome.identity.removeCachedAuthToken({ token }).catch(() => {});
+    else await forgetToken(account.email);
+    let reason = '';
+    try { const e = JSON.parse(body)?.error; reason = `${e?.errors?.[0]?.reason ?? e?.status ?? ''}${e?.message ? `: ${e.message}` : ''}`; } catch { reason = body.slice(0, 160); }
+    throw new Error(`scope-not-granted|${reason}`);
   }
   if (!res.ok) throw new Error(`gmail-${res.status}`);
   return res.json();

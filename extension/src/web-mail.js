@@ -13,8 +13,8 @@ import { GOOGLE_CLIENT_ID } from './config.js';
 import { gmailMoneyEmails } from './gmail-fetch.js';
 import { collectCandidates, candidateKey, CANDIDATE_VERSION } from './mail-candidates.js';
 
-const SCOPES = 'openid email https://www.googleapis.com/auth/gmail.messages.readonly';
-const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.messages.readonly';
+const SCOPES = 'openid email https://www.googleapis.com/auth/gmail.readonly';
+const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
 const TOKENS_KEY = 'trialexit:gmail-tokens';
 
 export function loadGis() {
@@ -71,7 +71,7 @@ async function emailForToken(token) {
  * @param {{ hint?: string, selectAccount?: boolean }} opts
  * @returns {Promise<{ token: string, email: string }>}
  */
-export async function requestGmailAccess({ hint = '', selectAccount = false } = {}) {
+export async function requestGmailAccess({ hint = '', selectAccount = false, consent = false } = {}) {
   if (!(/** @type {any} */ (window).google?.accounts?.oauth2)) await loadGis();
   const resp = await new Promise((resolve, reject) => {
     const client = /** @type {any} */ (window).google.accounts.oauth2.initTokenClient({
@@ -82,7 +82,7 @@ export async function requestGmailAccess({ hint = '', selectAccount = false } = 
       error_callback: (err) =>
         reject(new Error(err?.type === 'popup_closed' ? 'no-token' : err?.type === 'popup_failed_to_open' ? 'popup-blocked' : err?.type ?? 'no-token')),
     });
-    client.requestAccessToken({ prompt: selectAccount ? 'select_account' : '', login_hint: hint || undefined });
+    client.requestAccessToken({ prompt: consent ? 'consent' : selectAccount ? 'select_account' : '', login_hint: hint || undefined });
   });
   if (!(/** @type {any} */ (window).google.accounts.oauth2.hasGrantedAllScopes(resp, GMAIL_SCOPE))) throw new Error('scope-not-granted');
   const email = await emailForToken(resp.access_token);
@@ -90,6 +90,16 @@ export async function requestGmailAccess({ hint = '', selectAccount = false } = 
   all[email] = { token: resp.access_token, expiresAt: Date.now() + Number(resp.expires_in ?? 3600) * 1000 };
   setTokens(all);
   return { token: resp.access_token, email };
+}
+
+/** Google's own one-line reason from an error body (no personal data in it). */
+function googleReason(body) {
+  try {
+    const e = JSON.parse(body)?.error;
+    return String(e?.errors?.[0]?.reason ?? e?.status ?? '') + (e?.message ? `: ${e.message}` : '');
+  } catch {
+    return String(body).slice(0, 160);
+  }
 }
 
 async function gmail(email, token, path) {
@@ -105,7 +115,12 @@ async function gmail(email, token, path) {
     // Gmail also answers 403 when we read too fast: that's a "slow down", not missing access.
     if (/rateLimitExceeded|userRateLimitExceeded|quotaExceeded|RATE_LIMIT/i.test(body)) throw new Error('gmail-429');
     if (/SERVICE_DISABLED|accessNotConfigured|has not been used|is disabled/i.test(body)) throw new Error('gmail-api-disabled');
-    throw new Error('scope-not-granted');
+    // Refused: drop this access so the next tap asks Google again instead of
+    // reusing the same refused token for the rest of the hour.
+    const all = tokens();
+    delete all[email];
+    setTokens(all);
+    throw new Error(`scope-not-granted|${googleReason(body)}`);
   }
   if (!res.ok) throw new Error(`gmail-${res.status}`);
   return res.json();
@@ -149,10 +164,12 @@ export async function scanGmailWeb({ interactive, addAccount = false, account = 
     let scannedTotal = 0;
     const report = [];
     for (const acc of targets) {
-      let token = live(acc.email);
+      const hadError = Boolean(errors[acc.email]);
+      // A tap on Scan/Reconnect after a failure always asks Google again.
+      let token = interactive && hadError && !popupUsed ? null : live(acc.email);
       if (!token && interactive && !popupUsed) {
         try {
-          const r = await requestGmailAccess({ hint: acc.email });
+          const r = await requestGmailAccess({ hint: acc.email, consent: String(errors[acc.email]).startsWith('scope-not-granted') });
           popupUsed = true;
           if (r.email !== acc.email) throw new Error('account-changed');
           token = r.token;

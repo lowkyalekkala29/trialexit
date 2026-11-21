@@ -66,7 +66,7 @@ Help users remember to cancel free trials before they renew, by tracking renewal
 | notifications | Shows the renewal reminder. Clicking it opens that service's cancellation page. |
 | activeTab | Lets the user press "Track a trial on this page" on a tab that was open before the extension was installed. |
 | scripting | Injects the trial-detection function into the active tab only after the user clicks "Check this page", and registers the detector on a single site only when the user presses "Always detect here" and grants that site. |
-| identity | Lets the user sign in to Google when they press "Connect Gmail", to grant read-only mailbox access (gmail.messages.readonly) used to find trial confirmation emails. |
+| identity | Lets the user sign in to Google when they press "Connect Gmail", to grant read-only mailbox access (gmail.readonly) used to find trial confirmation emails. |
 | Host permission: gmail.googleapis.com, oauth2.googleapis.com | After the user connects Gmail, searches their mailbox (read-only) for free-trial confirmation emails; oauth2.googleapis.com is used only to revoke the token on disconnect. Email content is processed on the device and never transmitted elsewhere. |
 | Content script on mail.google.com | Reads only the email the user currently has open, to offer "Track this trial" when it is a trial confirmation. Processed on-device; nothing is transmitted. |
 | Host permission: raw.githubusercontent.com | Downloads the public JSON list of cancellation links (no user data is sent) so broken links can be fixed without an extension update. |
