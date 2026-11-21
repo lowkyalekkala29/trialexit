@@ -287,7 +287,8 @@ function mailError(provider, reason) {
   const name = PROVIDER_LABEL[provider] ?? 'Email';
   if (r === 'not-configured') return `${name} connection isn't switched on in this build yet. Use Paste email meanwhile.`;
   if (r === 'outlook-web') return 'Outlook scanning is available in the Chrome extension. On the web, paste the email instead.';
-  if (r === 'scope-not-granted') return `Google's window lists "View your email messages and settings" with a checkbox — tick it, then continue. Press Scan ${name} to try again.`;
+  if (r === 'scope-not-granted') return `Google didn't give read access to your ${name}. Press Scan ${name} again and, in Google's window, keep "View your email messages and settings" ticked.`;
+  if (r === 'gmail-api-disabled') return "Gmail scanning isn't switched on yet on our side (Gmail API disabled). We're on it — try again soon, or paste the email meanwhile.";
   if (r === 'popup-blocked') return `Your browser blocked Google's window. Allow pop-ups for trialexit.vercel.app (icon at the right of the address bar), then press Scan ${name} again.`;
   if (r === 'needs-consent') return `Press Scan ${name} to allow read-only access again.`;
   if (r === 'google-unavailable') return "Couldn't load Google's sign-in. Check your connection or ad-blocker, then try again.";

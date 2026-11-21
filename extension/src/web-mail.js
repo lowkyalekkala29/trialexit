@@ -78,7 +78,13 @@ async function gmail(token, path) {
     sessionStorage.removeItem(TOKEN_KEY);
     throw new Error('expired');
   }
-  if (res.status === 403) throw new Error('scope-not-granted');
+  if (res.status === 403) {
+    // Two very different 403s: the API is switched off in the Google Cloud
+    // project (owner must enable it), or the user didn't grant Gmail access.
+    const body = await res.text().catch(() => '');
+    if (/SERVICE_DISABLED|accessNotConfigured|has not been used|is disabled/i.test(body)) throw new Error('gmail-api-disabled');
+    throw new Error('scope-not-granted');
+  }
   if (!res.ok) throw new Error(`gmail-${res.status}`);
   return res.json();
 }
