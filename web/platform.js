@@ -54,6 +54,12 @@
           Object.assign(store, obj);
           persist(changes);
         },
+        clear: async () => {
+          const changes = {};
+          for (const k of Object.keys(store)) changes[k] = { oldValue: store[k] };
+          store = {};
+          persist(changes);
+        },
         remove: async (key) => {
           const changes = {};
           for (const k of Array.isArray(key) ? key : [key]) {

@@ -14,11 +14,18 @@ const repo = join(root, '..');
 await mkdir(join(repo, 'extension/src/core'), { recursive: true });
 await mkdir(join(repo, 'extension/data'), { recursive: true });
 
-for (const file of ['types.js', 'dates.js', 'ics.js', 'store.js', 'directory.js', 'alerts.js', 'guess.js', 'mail.js', 'activation.js']) {
+for (const file of ['types.js', 'dates.js', 'ics.js', 'store.js', 'directory.js', 'alerts.js', 'guess.js', 'mail.js', 'activation.js', 'sync.js', 'reminders.js']) {
   await cp(join(repo, 'core/src', file), join(repo, 'extension/src/core', file));
 }
 
 await cp(join(repo, 'directory/directory.json'), join(repo, 'extension/data/directory.json'));
+
+// Edge functions import the same core logic, so the server and the extension
+// can never disagree about when a nudge is due.
+await mkdir(join(repo, 'supabase/functions/_shared'), { recursive: true });
+for (const file of ['dates.js', 'alerts.js', 'store.js', 'reminders.js', 'signing.js', 'email.js']) {
+  await cp(join(repo, 'core/src', file), join(repo, 'supabase/functions/_shared', file));
+}
 
 const manifestPath = join(repo, 'extension/manifest.json');
 const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));

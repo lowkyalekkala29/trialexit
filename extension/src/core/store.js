@@ -75,9 +75,9 @@ export function transition(trials, id, next, now = new Date()) {
   const stamp = now.toISOString();
   return trials.map((t) => {
     if (t.id !== id) return t;
-    if (next === 'confirmed_cancelled') return { ...t, status: next, cancelledAt: stamp };
-    if (next === 'active') return { ...t, status: next, cancelledAt: null };
-    return { ...t, status: next };
+    if (next === 'confirmed_cancelled') return { ...t, status: next, cancelledAt: stamp, updatedAt: stamp };
+    if (next === 'active') return { ...t, status: next, cancelledAt: null, updatedAt: stamp };
+    return { ...t, status: next, updatedAt: stamp };
   });
 }
 

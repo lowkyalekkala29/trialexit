@@ -25,11 +25,13 @@ const FINAL_WINDOW = 24 * HOUR;
 /**
  * @param {import('./types.js').Trial[]} trials
  * @param {Date} [now]
+ * @param {{ skip?: string[] }} [prefs]  nudge kinds the user turned off
  * @returns {PendingAlert[]}
  */
-export function pendingAlerts(trials, now = new Date()) {
+export function pendingAlerts(trials, now = new Date(), prefs = {}) {
   /** @type {PendingAlert[]} */
   const out = [];
+  const skip = new Set(prefs.skip ?? []);
   for (const t of trials) {
     const status = derivedStatus(t, now);
     const renewal = toDate(t.renewsAt).getTime();
@@ -61,7 +63,7 @@ export function pendingAlerts(trials, now = new Date()) {
       out.push({ trialId: t.id, at: a.at, kind: /** @type {AlertKind} */ (a.kind), label: a.label });
     }
   }
-  return out.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
+  return out.filter((a) => !skip.has(a.kind) && !(a.kind === 'immediate' && skip.has('lastcall') && skip.has('urgent') && skip.has('final'))).sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
 }
 
 /**
