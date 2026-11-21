@@ -63,15 +63,18 @@ function renderBanner() {
   if (!el) return;
   const canNotify = 'Notification' in window;
   const granted = canNotify && Notification.permission === 'granted';
-  el.innerHTML = `
+  if (document.body.classList.contains('is-onboarding')) {
+    el.innerHTML = '';
+    return;
+  }
+  el.innerHTML = `<div class="banner">
     <div>
-      <b>You're using the web app.</b> Your trials stay in this browser only.
-      For alerts when this tab is closed, tap <b>Add to calendar</b> on each trial
-      (works on your phone), or <a href="../#install">install the Chrome extension</a>.
+      Trials are saved in this browser. For nudges when this tab is closed, use
+      <b>Calendar</b> on each trial, or <a href="../#install">get the Chrome extension</a> — it also finds trials in your Gmail.
     </div>
     ${canNotify && !granted && Notification.permission !== 'denied'
       ? '<button class="btn" id="enable-notify">Enable tab alerts</button>'
-      : ''}`;
+      : ''}</div>`;
   document.getElementById('enable-notify')?.addEventListener('click', async () => {
     await Notification.requestPermission();
     renderBanner();
@@ -80,5 +83,6 @@ function renderBanner() {
 }
 
 renderBanner();
+new MutationObserver(renderBanner).observe(document.body, { attributes: true, attributeFilter: ['class'] });
 check();
 setInterval(check, 60_000);

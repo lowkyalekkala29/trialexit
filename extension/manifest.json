@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "TrialExit",
-  "version": "0.3.0",
-  "description": "Track free trials and get a reminder that opens the exact cancel page — before you get charged.",
+  "version": "0.4.0",
+  "description": "Catch every free trial — from checkout pages and your Gmail — and get nudged before it charges, with a one-click cancel link.",
   "minimum_chrome_version": "116",
   "icons": {
     "16": "icons/icon-16.png",
@@ -28,10 +28,14 @@
     "alarms",
     "notifications",
     "activeTab",
-    "scripting"
+    "scripting",
+    "identity"
   ],
   "host_permissions": [
-    "https://raw.githubusercontent.com/*"
+    "https://raw.githubusercontent.com/*",
+    "https://gmail.googleapis.com/*",
+    "https://oauth2.googleapis.com/*",
+    "https://graph.microsoft.com/*"
   ],
   "optional_host_permissions": [
     "https://*/*",
@@ -67,6 +71,21 @@
         "src/detect.js"
       ],
       "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://mail.google.com/*"
+      ],
+      "js": [
+        "src/detect-gmail.js"
+      ],
+      "run_at": "document_idle"
     }
-  ]
+  ],
+  "oauth2": {
+    "client_id": "REPLACE_WITH_CLIENT_ID.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/gmail.readonly"
+    ]
+  }
 }

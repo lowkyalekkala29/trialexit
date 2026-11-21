@@ -8,11 +8,15 @@
   <body class="popup">
     <div class="wrap">
       <header class="top">
-        <h1 style="font-size: 15px">TrialExit</h1>
-        <button class="ghost" id="open-dash" style="font-size: 12px; padding: 4px 8px">Dashboard</button>
+        <span class="brand"><span class="mark">✓</span><h1 style="font-size: 15px">TrialExit</h1></span>
+        <button class="sm" id="open-dash">All trials</button>
       </header>
       <div id="mini"></div>
-      <div id="detect-area" style="margin-top: 10px"></div>
+      <div style="display: grid; gap: 8px; margin-top: 12px">
+        <div id="detect-area"></div>
+        <button id="scan-gmail" style="width: 100%">Find trials in my email</button>
+      </div>
+      <p class="hint" style="margin: 10px 0 0; text-align: center">Read on your device. Nothing leaves your browser.</p>
     </div>
     <script type="module" src="popup.js"></script>
   </body>

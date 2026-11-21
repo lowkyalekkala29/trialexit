@@ -1,8 +1,18 @@
 import { derivedStatus, sortedForDisplay } from './core/store.js';
-import { urgency, msUntil, formatCountdown, formatMoney } from './core/dates.js';
+import { urgency, msUntil, formatCountdown, formatMoney, HOUR } from './core/dates.js';
+import { logoHtml } from './brand.js';
 
 const mini = document.getElementById('mini');
 const detectArea = document.getElementById('detect-area');
+
+document.getElementById('scan-gmail').addEventListener('click', async () => {
+  const { settings } = await chrome.storage.local.get('settings');
+  if (Object.values(settings?.mailConnected ?? {}).some(Boolean)) {
+    chrome.runtime.sendMessage({ type: 'mail-rescan' });
+  }
+  chrome.runtime.openOptionsPage();
+  window.close();
+});
 
 document.getElementById('open-dash').addEventListener('click', () => {
   chrome.runtime.openOptionsPage();
@@ -20,7 +30,7 @@ async function activeTab() {
 }
 
 async function renderDetection() {
-  detectArea.innerHTML = '<button class="primary" id="detect-btn" style="width:100%;justify-content:center">Check this page</button>';
+  detectArea.innerHTML = '<button class="primary" id="detect-btn" style="width:100%">Track a trial on this page</button>';
 
   document.getElementById('detect-btn').addEventListener('click', async () => {
     detectArea.innerHTML = '<div class="hint">Scanning…</div>';
@@ -37,7 +47,7 @@ async function renderDetection() {
     const badge = a?.phase === 'post-signup' ? 'just signed up' : a?.days ? `${a.days.days}-day trial` : 'no trial signals';
 
     detectArea.innerHTML = `
-      <div class="card" data-band="${a?.days || a?.phase === 'post-signup' ? 'safe' : 'past_due'}" style="padding:11px 12px;gap:7px">
+      <div class="card" style="padding:11px 12px;gap:7px">
         <div class="card-head">
           <span class="card-name" style="font-size:14px">${esc(name)}</span>
           <span class="pill ${a?.days ? 'ok' : ''}">${esc(badge)}</span>
@@ -45,8 +55,8 @@ async function renderDetection() {
         <div class="meta" style="font-size:12px">${esc(a?.note ?? '')}</div>
         <div class="meta" style="font-size:12px">${entry ? 'Cancel link on file' : 'Not in the directory yet'}</div>
         <div class="actions" style="margin-top:2px">
-          <button class="primary" id="track-btn" style="font-size:12px;padding:5px 9px">Log this trial</button>
-          ${entry ? '' : '<button class="ghost" id="always-btn" style="font-size:12px;padding:5px 9px">Always detect here</button>'}
+          <button class="primary sm" id="track-btn">Track this trial</button>
+          ${entry ? '' : '<button class="ghost sm" id="always-btn">Always detect here</button>'}
         </div>
       </div>`;
 
@@ -87,22 +97,29 @@ async function renderDetection() {
 const got = await chrome.storage.local.get(['trials']);
 const trials = Array.isArray(got.trials) ? got.trials : [];
 const now = new Date();
-const list = sortedForDisplay(trials, now).filter((t) => derivedStatus(t, now) !== 'confirmed_cancelled');
+const open = sortedForDisplay(trials, now).filter((t) => {
+  const st = derivedStatus(t, now);
+  return st === 'active' || st === 'awaiting_confirmation' || (st === 'charged' && t.status !== 'charged');
+});
 
-if (!list.length) {
+if (!open.length) {
   mini.innerHTML =
-    '<div class="empty" style="padding:16px 12px;font-size:13px">No active trials.<br />Log one below, or on a checkout page.</div>';
+    '<div class="empty" style="padding:16px 12px;font-size:13px">No trials tracked yet.<br />Track one on this page, or let us find them in your email.</div>';
 } else {
-  mini.innerHTML = `<div class="cards">${list
-    .slice(0, 3)
+  const urgent = open.filter((t) => msUntil(t.renewsAt, now) <= 48 * HOUR).length;
+  mini.innerHTML = `<div class="section-head" style="margin-bottom:8px"><h2>${urgent ? 'Needs attention' : 'Next up'}</h2><span class="n">${open.length} open</span></div>
+  <div class="cards">${open
+    .slice(0, 4)
     .map((t) => {
       const band = urgency(t.renewsAt, now);
-      return `<div class="card" data-band="${band}" style="padding:9px 11px;gap:4px">
+      const passed = msUntil(t.renewsAt, now) <= 0;
+      return `<div class="card" data-band="${band}">
         <div class="card-head">
-          <span class="card-name" style="font-size:14px">${esc(t.serviceName)}</span>
-          <span class="count ${band === 'critical' ? 'crit' : band === 'soon' ? 'soon' : ''}" style="font-size:13px">${formatCountdown(msUntil(t.renewsAt, now))}</span>
+          ${logoHtml(t.serviceId, t.serviceName, 'sm')}
+          <div style="display:grid;min-width:0"><span class="card-name">${esc(t.serviceName)}</span>
+          <span class="meta" style="font-size:12px">${t.amount ? `${formatMoney(t.amount, t.currency)} renews` : 'renews'}</span></div>
+          <span class="count ${passed || band === 'critical' ? 'crit' : band === 'soon' ? 'soon' : ''}">${passed ? 'Renewed?' : formatCountdown(msUntil(t.renewsAt, now))}</span>
         </div>
-        <div class="meta" style="font-size:12px">${formatMoney(t.amount, t.currency)} renews</div>
       </div>`;
     })
     .join('')}</div>`;

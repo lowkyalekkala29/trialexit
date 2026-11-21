@@ -1,8 +1,13 @@
 # TrialExit
 
-Track free trials and get a reminder that **opens the exact cancel page** — before the charge lands.
+Catch every free trial you start — from **Gmail / Outlook** and checkout pages — get nudged as the
+charge gets closer, and cancel in one click on the exact cancel page.
 
-No bank access, no accounts, no server. Everything stays in the browser.
+No bank access, no accounts, no server. Email is read on-device. Two surfaces, one codebase:
+a Chrome extension (`extension/`) and a web app (`web/` → `/app`).
+
+**Launching?** Read [SETUP.md](SETUP.md) (OAuth clients, store submission) and
+[store/LISTING.md](store/LISTING.md) (copy-paste listing + permission justifications).
 
 ## Why it exists
 
@@ -11,6 +16,13 @@ alone fails because once it opens you still have to go find a buried cancellatio
 puts the reminder, the direct cancellation URL, and the steps in one place.
 
 ## What it does
+
+- **Finds trials in your inbox** — connect Gmail or Outlook (read-only); trial confirmation emails,
+  including ones from phone and app-store signups, become one-click suggestions. Rescans every 6h.
+- **Onboarding in 30 seconds** — tap the services you're trialling, pick when each ends.
+- **Escalating nudges** — 2 days, 1 day, 6 hours, 1 hour (plus 5 days for long trials), a 9am digest,
+  snooze buttons, then "Did it renew?" so every trial ends as cancelled / kept / charged.
+- **Paste an email** — for the web app and mobile: paste a confirmation, the date and price are read.
 
 - **5-second capture** — service, renewal date/time/timezone, amount.
 - **Countdown cards** — green (>7d), amber (2–7d), red (<48h), grey (past due).
@@ -27,7 +39,8 @@ puts the reminder, the direct cancellation URL, and the steps in one place.
 ## Scripts
 
 ```
-npm test              # 25 tests, zero dependencies
+npm test              # 52 tests, zero dependencies
+npm run site          # build landing + web app into site/
 npm run sync          # vendor core/ + directory/ into extension/ (Chrome can't import outside its root)
 npm run icons         # regenerate PNG icons (hand-rolled PNG encoder, no image deps)
 npm run verify        # live-check every cancel URL, report only
@@ -80,5 +93,5 @@ Broken link? Open an issue with the service name and what changed.
 
 ## Status
 
-`0.1.0` — pre-release. Paywall is wired but dormant (`FREE_LAUNCH` in `core/src/store.js`) while
+`0.4.0` — pre-release. Paywall is wired but dormant (`FREE_LAUNCH` in `core/src/store.js`) while
 the product is free for the first 20 users. Payments are not integrated yet.

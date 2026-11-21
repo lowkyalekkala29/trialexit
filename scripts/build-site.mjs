@@ -20,7 +20,7 @@ await cp(join(repo, 'landing/index.html'), join(out, 'index.html'));
 await cp(join(repo, 'PRIVACY.md'), join(out, 'privacy.md'));
 await cp(join(repo, 'extension/icons'), join(out, 'icons'), { recursive: true });
 
-for (const f of ['dashboard.js', 'licence.js', 'ui.css']) {
+for (const f of ['dashboard.js', 'licence.js', 'brand.js', 'ui.css']) {
   await cp(join(repo, 'extension/src', f), join(app, f));
 }
 await cp(join(repo, 'core/src'), join(app, 'core'), { recursive: true });

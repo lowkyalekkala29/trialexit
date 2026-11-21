@@ -8,8 +8,8 @@
 
 import { normalizeDirectory, matchByHost, loadDirectory } from './core/directory.js';
 import { derivedStatus, sortedForDisplay, transition } from './core/store.js';
-import { msUntil, HOUR } from './core/dates.js';
-import { extractTrialDays, extractPrice, detectPhase, derivationNote, deriveRenewal } from './core/guess.js';
+import { msUntil, HOUR, zonedWallTimeToInstant } from './core/dates.js';
+import { extractTrialDays, extractPrice, detectPhase, derivationNote, deriveRenewal, parseTrialEmail } from './core/guess.js';
 import {
   pendingAlerts,
   alarmName,
@@ -18,7 +18,10 @@ import {
   notificationBody,
 } from './core/alerts.js';
 
+import { scanMailbox, disconnectMailbox, PROVIDERS } from './mail-scan.js';
+
 const ALARM_PREFIX = 'trial:';
+const MAIL_ALARM = 'mail-scan';
 const SNOOZE_PREFIX = 'snooze:';
 const DIGEST_ALARM = 'daily-digest';
 const SNOOZE_MS = 3 * HOUR;
@@ -163,7 +166,7 @@ async function fireNotification(alarmNameValue) {
 /** @param {string} notificationId @param {number} buttonIndex */
 async function handleNotification(notificationId, buttonIndex = 0) {
   await chrome.notifications.clear(notificationId);
-  if (notificationId === DIGEST_ALARM) return chrome.runtime.openOptionsPage();
+  if (notificationId === DIGEST_ALARM || notificationId === 'mail-found') return chrome.runtime.openOptionsPage();
   const parsed = parseAlarmName(notificationId);
   if (!parsed) return chrome.runtime.openOptionsPage();
 
@@ -189,6 +192,55 @@ async function handleNotification(notificationId, buttonIndex = 0) {
   }
 }
 
+/**
+ * Scan one mailbox (or every connected one), merge new suggestions into
+ * storage, and notify about anything new on background runs.
+ * @param {'gmail'|'outlook'|null} provider  null = all connected
+ * @param {boolean} interactive
+ */
+async function runMailScan(provider, interactive) {
+  const got = await chrome.storage.local.get(['mailSeen', 'mailCandidates', 'settings']);
+  const settings = got.settings ?? {};
+  const connected = { ...(settings.mailConnected ?? {}) };
+  const targets = provider ? [provider] : Object.keys(connected).filter((k) => connected[k]);
+  const existing = Array.isArray(got.mailCandidates) ? got.mailCandidates : [];
+  const seen = new Set([...(got.mailSeen ?? []), ...existing.map((c) => c.messageId)]);
+  const fresh = [];
+  const errors = {};
+  for (const p of targets) {
+    try {
+      const { candidates } = await scanMailbox(/** @type {any} */ (p), {
+        interactive,
+        directory: await getDirectory(),
+        trials: await getTrials(),
+        seen,
+      });
+      const knownServices = new Set([...existing, ...fresh].map((c) => (c.serviceId ?? c.serviceName).toLowerCase()));
+      fresh.push(...candidates.filter((c) => !knownServices.has((c.serviceId ?? c.serviceName).toLowerCase())));
+      connected[p] = true;
+    } catch (err) {
+      errors[p] = String(err?.message ?? err);
+    }
+  }
+  const latest = (await chrome.storage.local.get('settings')).settings ?? {};
+  await chrome.storage.local.set({
+    mailCandidates: [...existing, ...fresh],
+    settings: { ...latest, mailConnected: connected, mailLastScan: new Date().toISOString(), mailErrors: errors },
+  });
+  if (Object.values(connected).some(Boolean)) await chrome.alarms.create(MAIL_ALARM, { periodInMinutes: 6 * 60 });
+  if (!interactive && fresh.length) {
+    await chrome.notifications.create('mail-found', {
+      type: 'basic',
+      iconUrl: chrome.runtime.getURL('icons/icon-128.png'),
+      title: fresh.length === 1 ? `New trial found: ${fresh[0].serviceName}` : `${fresh.length} new trials found in your email`,
+      message: 'Open TrialExit to start tracking — we will nudge you before it charges.',
+      priority: 2,
+    });
+  }
+  if (provider && errors[provider]) return { ok: false, reason: errors[provider] };
+  return { ok: true, found: fresh.length };
+}
+
 chrome.runtime.onInstalled.addListener(async (details) => {
   await chrome.alarms.create('badge-refresh', { periodInMinutes: 30 });
   await ensureDigest();
@@ -207,6 +259,10 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'badge-refresh') {
     refreshBadge();
     resyncAlarms();
+    return;
+  }
+  if (alarm.name === MAIL_ALARM) {
+    runMailScan(null, false).catch(() => {});
     return;
   }
   if (alarm.name === DIGEST_ALARM) {
@@ -315,7 +371,118 @@ async function registerSiteScript(origin) {
   return { ok: true };
 }
 
+export const GMAIL_TRIAL_SEARCH =
+  '("free trial" OR "trial ends" OR "trial period" OR "your trial" OR "subscription confirmation" OR "will automatically renew" OR "you\'ll be charged") newer_than:60d';
+
+/** Same service, renewal within 2 days, still open: treat as the same trial. */
+function findDuplicate(trials, serviceId, serviceName, renewsAt) {
+  const at = new Date(renewsAt).getTime();
+  return trials.find(
+    (t) =>
+      (t.serviceId === serviceId || t.serviceName.toLowerCase() === String(serviceName).toLowerCase()) &&
+      ['active', 'awaiting_confirmation'].includes(t.status) &&
+      Math.abs(new Date(t.renewsAt).getTime() - at) < 2 * 24 * HOUR,
+  );
+}
+
+/** @param {any} input from a detector; every field was confirmed by the user */
+async function addTrialFromDetector(input) {
+  const name = String(input?.serviceName ?? '').trim();
+  if (!name) return { ok: false, reason: 'Service name is required' };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(input?.renewsOn))) return { ok: false, reason: 'Pick an end date' };
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  const renewsAt = zonedWallTimeToInstant(input.renewsOn, '00:00', zone).toISOString();
+  const directory = await getDirectory();
+  const entry =
+    (input.serviceId && directory.find((e) => e.serviceId === input.serviceId)) ||
+    directory.find((e) => e.name.toLowerCase() === name.toLowerCase()) ||
+    null;
+  const currency = input.currency ?? (zone === 'Asia/Kolkata' || zone === 'Asia/Calcutta' ? 'INR' : 'USD');
+  const region = input.region ?? entry?.region ?? (currency === 'INR' ? 'IN' : 'US');
+  const serviceId = entry?.serviceId ?? name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  const trials = await getTrials();
+  if (findDuplicate(trials, serviceId, name, renewsAt)) return { ok: true, duplicate: true };
+  const days = Number(input.trialLengthDays) || Math.max(1, Math.round((new Date(renewsAt).getTime() - Date.now()) / (24 * HOUR)));
+  trials.push({
+    id: crypto.randomUUID(),
+    serviceId,
+    region,
+    serviceName: entry?.name ?? name,
+    renewsAt,
+    timezone: zone,
+    amount: Math.max(0, Math.round((Number(input.amount) || 0) * 100)),
+    currency,
+    trialLengthDays: days,
+    status: 'active',
+    createdAt: new Date().toISOString(),
+    cancelledAt: null,
+    cancelUrlUsed: null,
+    source: input.source ?? 'detector',
+  });
+  await setTrials(trials);
+  return { ok: true };
+}
+
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg?.type === 'analyze-email') {
+    Promise.all([getDirectory(), getTrials()])
+      .then(([entries, trials]) => {
+        const result = parseTrialEmail(String(msg.text ?? ''), entries);
+        const alreadyTracked = Boolean(
+          result.renewsOn &&
+            result.entry &&
+            findDuplicate(trials, result.entry.serviceId, result.entry.name, result.renewsOn),
+        );
+        sendResponse({ ok: true, result, alreadyTracked });
+      })
+      .catch((err) => sendResponse({ ok: false, reason: String(err?.message ?? err) }));
+    return true;
+  }
+  if (msg?.type === 'add-trial') {
+    addTrialFromDetector(msg.trial)
+      .then(sendResponse)
+      .catch((err) => sendResponse({ ok: false, reason: String(err?.message ?? err) }));
+    return true;
+  }
+  if (msg?.type === 'mail-connect' || msg?.type === 'mail-rescan') {
+    if (msg.provider && !PROVIDERS[msg.provider]) return false;
+    runMailScan(msg.provider ?? null, msg.type === 'mail-connect')
+      .then(sendResponse)
+      .catch((err) => sendResponse({ ok: false, reason: String(err?.message ?? err) }));
+    return true;
+  }
+  if (msg?.type === 'mail-dismiss') {
+    chrome.storage.local.get(['mailSeen', 'mailCandidates']).then(async (got) => {
+      const seen = new Set(got.mailSeen ?? []);
+      seen.add(msg.messageId);
+      await chrome.storage.local.set({
+        mailSeen: [...seen].slice(-2000),
+        mailCandidates: (got.mailCandidates ?? []).filter((c) => c.messageId !== msg.messageId),
+      });
+      sendResponse({ ok: true });
+    });
+    return true;
+  }
+  if (msg?.type === 'mail-disconnect') {
+    if (!PROVIDERS[msg.provider]) return false;
+    disconnectMailbox(msg.provider).then(async () => {
+      const got = await chrome.storage.local.get(['settings', 'mailCandidates']);
+      const connected = { ...(got.settings?.mailConnected ?? {}), [msg.provider]: false };
+      if (!Object.values(connected).some(Boolean)) await chrome.alarms.clear(MAIL_ALARM);
+      await chrome.storage.local.set({
+        mailCandidates: (got.mailCandidates ?? []).filter((c) => c.provider !== msg.provider),
+        settings: { ...(got.settings ?? {}), mailConnected: connected },
+      });
+      sendResponse({ ok: true });
+    });
+    return true;
+  }
+  if (msg?.type === 'scan-gmail') {
+    chrome.tabs
+      .create({ url: `https://mail.google.com/mail/u/0/#search/${encodeURIComponent(GMAIL_TRIAL_SEARCH)}` })
+      .then(() => sendResponse({ ok: true }));
+    return true;
+  }
   if (msg?.type === 'detect-service') {
     getDirectory()
       .then((entries) => sendResponse({ entry: matchByHost(entries, msg.hostname ?? '') ?? null }))

@@ -3,21 +3,22 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>TrialExit — cancel the trial before it charges you</title>
+    <title>TrialExit — catch every free trial before it charges you</title>
     <meta
       name="description"
-      content="Free trial ending? TrialExit reminds you before renewal and opens the exact cancellation page. No bank access, no subscription, no account."
+      content="TrialExit finds the free trials you started — in your Gmail or Outlook and on checkout pages — nudges you before they charge, and opens the exact cancel page. No bank access."
     />
     <style>
       :root {
-        --bg: #0b1310;
-        --surface: #131f1a;
-        --line: #24352c;
-        --text: #e9f3ed;
-        --muted: #94a89c;
-        --green: #2fbf71;
-        --amber: #e0a72a;
-        --red: #e2503f;
+        --bg: #f6f7f9;
+        --surface: #ffffff;
+        --line: #e4e7eb;
+        --text: #111827;
+        --muted: #6b7280;
+        --green: #16a34a;
+        --amber: #d97706;
+        --red: #dc2626;
+        color-scheme: light;
       }
       * { box-sizing: border-box; }
       html { scroll-behavior: smooth; }
@@ -29,7 +30,7 @@
       }
       .wrap { max-width: 940px; margin: 0 auto; padding: 0 22px; }
       header { padding: 22px 0; display: flex; align-items: center; gap: 12px; }
-      .logo { width: 30px; height: 30px; border-radius: 8px; background: var(--green); display: grid; place-items: center; color: #062015; font-weight: 800; }
+      .logo { width: 30px; height: 30px; border-radius: 8px; background: var(--green); display: grid; place-items: center; color: #fff; font-weight: 800; }
       .name { font-weight: 650; letter-spacing: -0.2px; }
       nav { margin-left: auto; display: flex; gap: 18px; font-size: 14px; }
       nav a { color: var(--muted); text-decoration: none; }
@@ -42,7 +43,7 @@
       .cta { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
       .btn {
         display: inline-block; padding: 12px 20px; border-radius: 11px;
-        background: var(--green); color: #062015; font-weight: 650; text-decoration: none;
+        background: var(--green); color: #fff; font-weight: 650; text-decoration: none;
       }
       .btn.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); font-weight: 500; }
       .fine { font-size: 13px; color: var(--muted); }
@@ -52,7 +53,7 @@
       .sub { color: var(--muted); margin: 0 0 26px; max-width: 620px; }
 
       .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
-      .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+      .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; box-shadow: 0 1px 3px rgba(17,24,39,.06); }
       .card h3 { margin: 0 0 6px; font-size: 16px; }
       .card p { margin: 0; color: var(--muted); font-size: 15px; }
 
@@ -88,7 +89,7 @@
 
       footer { padding: 40px 0 60px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--line); }
       footer a { color: var(--muted); }
-      .note { background: #1a1408; border: 1px solid #3a2c10; border-radius: 12px; padding: 14px 16px; color: #e7c67a; font-size: 14px; }
+      .note { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 12px; padding: 14px 16px; color: #9a3412; font-size: 14px; }
       @media (max-width: 620px) { nav { display: none; } }
     </style>
   </head>
@@ -107,11 +108,11 @@
       </header>
 
       <div class="hero">
-        <h1>Cancel the trial <em>before</em> it charges you.</h1>
+        <h1>Catch every free trial <em>before</em> it charges you.</h1>
         <p class="lede">
-          Free trials are designed to be forgotten. TrialExit reminds you two days before renewal — and
-          the reminder opens the exact cancellation page, so it takes ten seconds instead of twenty minutes
-          of hunting through settings.
+          Free trials are designed to be forgotten. TrialExit finds the trials you started — in your
+          Gmail or Outlook, even ones from your phone or the app store — then nudges you 2 days, 1 day,
+          6 hours and 1 hour before the charge. One click opens the exact cancel page.
         </p>
         <div class="cta">
           <a class="btn" href="app/">Start free — no install</a>
@@ -147,8 +148,8 @@
       </section>
 
       <section id="how">
-        <h2>Three steps, five seconds</h2>
-        <p class="sub">Capture at checkout. Get nudged before the charge. Cancel in one click.</p>
+        <h2>Find it. Get nudged. Decide.</h2>
+        <p class="sub">Every trial lands in one list, and every trial ends with a decision — cancelled, kept, or charged.</p>
         <div class="demo">
           <div class="row red">
             <div><b>Adobe Creative Cloud</b><small>₹1,675 renews Sat 22 Nov, 00:00 IST</small></div>
@@ -164,9 +165,9 @@
           </div>
         </div>
         <ol class="steps" style="margin-top: 26px">
-          <li><b>Log the trial</b> — service, renewal date and time, amount. Auto-filled when you're on a checkout page.</li>
-          <li><b>Get the alert 48 hours out</b> — 5 days for trials over two weeks, plus a ping at 24 hours. Click it and the cancel page opens.</li>
-          <li><b>Mark it done</b> — only then does it count toward your saved total. We never claim a cancellation we didn't see you confirm.</li>
+          <li><b>We find your trials</b> — connect Gmail or Outlook (read-only) and trial confirmation emails show up ready to track. Checkout pages are detected as you sign up. Or tap the service and pick when it ends.</li>
+          <li><b>Nudges that get louder</b> — 2 days, 1 day, 6 hours and 1 hour before the charge, plus a morning digest. Click and the cancel page opens; snooze if you're busy.</li>
+          <li><b>"Did it renew?"</b> — after the renewal time we ask, so nothing silently turns into a subscription. Only confirmed cancellations count toward your saved total.</li>
         </ol>
       </section>
 
@@ -236,7 +237,11 @@
         <div style="margin-top: 10px">
           <details>
             <summary>Do you connect to my bank?</summary>
-            <p>No, and we never will. TrialExit only stores what you type: service, date, amount. No card numbers, no bank login.</p>
+            <p>No, and we never will. TrialExit stores the service, end date and amount — no card numbers, no bank login.</p>
+          </details>
+          <details>
+            <summary>Why do you need my email?</summary>
+            <p>It's optional. Every trial sends a confirmation email — even ones started on your phone or in an app store — so your inbox is the only place that sees all of them. Access is read-only, searches only for trial emails, and the emails are read inside the extension on your device. They are never uploaded: TrialExit has no server. Disconnect any time.</p>
           </details>
           <details>
             <summary>Where is my data stored?</summary>

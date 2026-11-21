@@ -3,37 +3,21 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#0d1512" />
+    <meta name="theme-color" content="#f6f7f9" />
     <meta name="description" content="Track free trials and cancel them before you get charged. No account, no bank access." />
     <title>TrialExit</title>
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" href="icons/icon-32.png" />
     <link rel="apple-touch-icon" href="icons/icon-128.png" />
     <link rel="stylesheet" href="ui.css" />
-    <style>
-      .web-banner {
-        display: flex; gap: 12px; align-items: center; justify-content: space-between;
-        margin-bottom: 18px; padding: 12px 14px; border-radius: var(--radius);
-        background: var(--surface); border: 1px solid var(--line); color: var(--muted); font-size: 13px;
-      }
-      .web-banner b { color: var(--text); }
-      .web-banner a { color: var(--safe); }
-      .web-banner .btn { white-space: nowrap; flex-shrink: 0; }
-      /* Returning users come back to check countdowns, not to fill the form. */
-      #app { display: flex; flex-direction: column; gap: 18px; }
-      #cards-wrap { order: -1; }
-      #cards-wrap:has(.empty) { order: 0; }
-      header.top h1 a { color: inherit; text-decoration: none; }
-      @media (max-width: 560px) { .web-banner { flex-direction: column; align-items: stretch; } }
-    </style>
   </head>
   <body>
     <div class="wrap">
       <header class="top">
-        <h1><a href="../">TrialExit</a></h1>
-        <div class="saved" id="saved"></div>
+        <a class="brand" href="../"><span class="mark">✓</span><h1>TrialExit</h1></a>
+        <div class="top-right"><div class="saved" id="saved"></div><div id="top-actions"></div></div>
       </header>
-      <div class="web-banner" id="web-banner"></div>
+      <div id="web-banner"></div>
       <div id="app"></div>
     </div>
     <dialog id="paywall">
