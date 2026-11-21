@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>TrialExit — Never pay for a free trial you forgot to cancel</title>
-    <meta name="description" content="TrialExit catches every free trial you start — on any website and in Gmail — nudges you before you're charged, and opens the exact cancel page. No bank access. Free." />
-    <meta property="og:title" content="TrialExit — Never pay for a free trial you forgot to cancel" />
-    <meta property="og:description" content="Catches your free trials automatically, nudges you before the charge, opens the exact cancel page. No bank access." />
+    <title>TrialExit — Stop losing money to forgotten trials and subscriptions</title>
+    <meta name="description" content="TrialExit finds your free trials, subscriptions and the deals in your inbox, and warns you before every charge, so you only pay for what you use. No bank access. Free." />
+    <meta property="og:title" content="TrialExit — Stop losing money to forgotten trials and subscriptions" />
+    <meta property="og:description" content="Trials, subscriptions, cancellations and offers in one place. Warned before every charge. No bank access." />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://trialexit.vercel.app/" />
     <meta property="og:image" content="https://trialexit.vercel.app/og.png" />
@@ -140,6 +140,7 @@
 
       /* features */
       .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+      .features.four { grid-template-columns: repeat(4, 1fr); }
       .feature { padding: 26px; border: 1px solid var(--line); border-radius: 18px; background: #fff; }
       .feature .ic { width: 44px; height: 44px; border-radius: 12px; background: var(--brand-soft); color: var(--brand-2); display: grid; place-items: center; font-size: 21px; }
       .feature h3 { font-size: 18px; margin: 16px 0 6px; }
@@ -223,7 +224,7 @@
         .hero .container { grid-template-columns: 1fr; }
         .mock { max-width: 560px; margin: 0 auto; width: 100%; }
         .floating { left: -10px; }
-        .features { grid-template-columns: repeat(2, 1fr); }
+        .features, .features.four { grid-template-columns: repeat(2, 1fr); }
         .privacy { grid-template-columns: 1fr; padding: 44px 28px; }
         footer .cols { grid-template-columns: 1fr 1fr; }
       }
@@ -238,7 +239,7 @@
         .hero { padding: 40px 0 64px; }
         .hero p.sub { font-size: 18px; }
         .hero .ctas .btn { width: 100%; }
-        .steps, .features { grid-template-columns: 1fr; }
+        .steps, .features, .features.four { grid-template-columns: 1fr; }
         .timeline { grid-template-columns: 1fr; gap: 14px; text-align: left; }
         .timeline::before { left: 27px; right: auto; top: 10px; bottom: 10px; width: 3px; height: auto; background: linear-gradient(180deg, #86efac, #fbbf24, #f87171, #dc2626, #a78bfa); }
         .tl { display: flex; align-items: center; gap: 16px; text-align: left; }
@@ -259,6 +260,7 @@
       <div class="container">
         <a class="logo" href="./"><span class="mark">✓</span>TrialExit</a>
         <div class="nav-links">
+          <a href="#what">What it tracks</a>
           <a href="#how">How it works</a>
           <a href="#features">Features</a>
           <a href="#privacy">Privacy</a>
@@ -277,8 +279,8 @@
       <div class="container">
         <div>
           <span class="eyebrow"><span class="dot"></span>Free during launch · Built for India</span>
-          <h1>Never pay for a free trial you <span class="hl">forgot to cancel.</span></h1>
-          <p class="sub">TrialExit catches every trial you start — on any website and in your Gmail — nudges you before you're charged, and opens the exact cancel page in one click.</p>
+          <h1>Stop losing money to things <span class="hl">you forgot.</span></h1>
+          <p class="sub">TrialExit finds every free trial, subscription and discount in your inbox and browser, warns you before each charge, and opens the exact cancel page in one click. You only pay for what you still use.</p>
           <div class="ctas">
             <a class="btn primary" href="app/#/signup">Get started — it's free</a>
             <a class="btn ghost" href="install.html">
@@ -313,10 +315,10 @@
             </div>
           </div>
           <div class="floating">
-            <h5>Your trials</h5>
-            <div class="mini"><span class="lg" style="background:#fa0f00">A</span><span class="nm">Adobe CC</span><span class="t red">1d 4h</span></div>
-            <div class="mini"><span class="lg" style="background:#1db954">S</span><span class="nm">Spotify</span><span class="t amber">3d 9h</span></div>
-            <div class="mini"><span class="lg" style="background:#10a37f">C</span><span class="nm">ChatGPT Plus</span><span class="t">18d</span></div>
+            <h5>Money protected <span style="color:var(--brand);float:right">₹2,597</span></h5>
+            <div class="mini"><span class="lg" style="background:#fa0f00">A</span><span class="nm">Adobe CC · trial</span><span class="t red">1d 4h</span></div>
+            <div class="mini"><span class="lg" style="background:#1db954">S</span><span class="nm">Spotify · ₹119/mo</span><span class="t amber">renews 3d</span></div>
+            <div class="mini"><span class="lg" style="background:#f7931e">S</span><span class="nm">Swiggy One · 50% off</span><span class="t">offer</span></div>
           </div>
           <div class="popup">
             <div class="row"><span class="mk">✓</span>Trial started at Streamflix?</div>
@@ -348,18 +350,34 @@
       </div>
     </section>
 
-    <section class="section" id="how">
+    <section class="section" id="what">
+      <div class="container">
+        <div class="section-head reveal">
+          <span class="kicker">One dashboard</span>
+          <h2>Every rupee that leaves quietly, in one place</h2>
+          <p>Free trials turn into charges. Subscriptions renew while you're not looking. Deals expire unused. TrialExit sorts all of it for you, so nothing costs you money by surprise.</p>
+        </div>
+        <div class="features four">
+          <div class="feature reveal"><div class="ic">⏳</div><h3>Trials</h3><p>Every free trial you started, with a countdown to the charge. Cancel in time, or keep it and it moves to Subscriptions.</p></div>
+          <div class="feature reveal"><div class="ic">🔁</div><h3>Subscriptions</h3><p>What you pay every month and year, with the next charge date. A reminder 3 days and 1 day before every renewal.</p></div>
+          <div class="feature reveal"><div class="ic">🛡️</div><h3>Cancelled</h3><p>"Money protected": every charge you avoided, counted honestly. Cancel a ₹299/month plan and the total grows every month you don't pay.</p></div>
+          <div class="feature reveal"><div class="ic">🏷️</div><h3>Offers &amp; discounts</h3><p>Coupons and deals from your inbox, with when they expire, so you pay less for what you already use.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section alt" id="how">
       <div class="container">
         <div class="section-head reveal">
           <span class="kicker">How it works</span>
-          <h2>Catch it. Get nudged. Cancel in one click.</h2>
-          <p>Free trials are designed to be forgotten. TrialExit does the remembering, so you don't have to.</p>
+          <h2>Find it. Get warned. Cancel in one click.</h2>
+          <p>Trials and subscriptions are designed to be forgotten. TrialExit does the remembering, so you don't lose money.</p>
         </div>
         <div class="steps">
           <div class="step reveal">
             <div class="num">1</div>
-            <h3>We catch the trial</h3>
-            <p>Start a trial on any website and TrialExit asks "Trial started — track it?". Or scan Gmail to find the ones you already have.</p>
+            <h3>We find what charges you</h3>
+            <p>Start a trial on any website and TrialExit asks "Trial started — track it?". Scan Gmail and it sorts your trials, subscriptions, cancellations and offers.</p>
             <div class="art">
               <div class="pillrow"><span class="on">Checkout pages</span><span class="on">Gmail</span><span>Paste an email</span></div>
               <div class="mini" style="background:#fff"><span class="lg" style="background:#ff0033">Y</span><span class="nm">YouTube Premium</span><span class="t" style="color:var(--brand)">Found ✓</span></div>
@@ -368,7 +386,7 @@
           <div class="step reveal">
             <div class="num">2</div>
             <h3>Nudges get louder</h3>
-            <p>Reminders at 2 days, 1 day, 6 hours and 1 hour before the charge, by email and desktop notification.</p>
+            <p>Trials: 2 days, 1 day, 6 hours and 1 hour before the charge. Subscriptions: 3 days and 1 day before each renewal. By email and desktop.</p>
             <div class="art">
               <div class="notif"><b>⏰ Adobe renews in under 24 hours</b><span>₹1,675 will be charged unless you cancel.</span><div class="btns"><span>Open cancel page</span><span>Snooze 3h</span></div></div>
             </div>
@@ -379,14 +397,14 @@
             <p>One click opens the exact cancellation page with the steps. Afterwards we ask "Did it renew?" so nothing slips through.</p>
             <div class="art">
               <div class="pillrow"><span class="on">I cancelled it</span><span>Keeping it</span><span>I got charged</span></div>
-              <div style="font-weight:700;color:var(--brand)">Saved ₹1,675 ✓</div>
+              <div style="font-weight:700;color:var(--brand)">Money protected +₹1,675 ✓</div>
             </div>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="section alt" id="features">
+    <section class="section" id="features">
       <div class="container">
         <div class="section-head reveal">
           <span class="kicker">Features</span>
@@ -394,21 +412,21 @@
         </div>
         <div class="features">
           <div class="feature reveal"><div class="ic">🛒</div><h3>Detects trials on any site</h3><p>The Chrome extension notices trial checkouts and "your trial has started" pages everywhere — not just a fixed list.</p></div>
-          <div class="feature reveal"><div class="ic">📧</div><h3>Finds trials in your inbox</h3><p>Scan Gmail (read-only) to catch trials started on your phone or in app stores. Emails never leave your device.</p></div>
+          <div class="feature reveal"><div class="ic">📧</div><h3>Reads your inbox for you</h3><p>Scan one or more Gmail inboxes (read-only) for trials, receipts, cancellations and deals, even ones started on your phone or in app stores. Emails never leave your device.</p></div>
           <div class="feature reveal"><div class="ic">⏰</div><h3>Escalating reminders</h3><p>Email and desktop nudges that get closer together as the charge approaches. Snooze when you're busy.</p></div>
           <div class="feature reveal"><div class="ic">🔗</div><h3>The exact cancel page</h3><p>Direct links and step-by-step guides, with a warning when a service only lets you cancel through support chat.</p></div>
           <div class="feature reveal"><div class="ic">❓</div><h3>"Did it renew?"</h3><p>After the renewal time we ask what happened, so a forgotten trial never quietly turns into a subscription.</p></div>
-          <div class="feature reveal"><div class="ic">💰</div><h3>See what you saved</h3><p>An honest savings total — only trials you confirmed cancelling in time. Plus calendar export for your phone.</p></div>
+          <div class="feature reveal"><div class="ic">💰</div><h3>See your money</h3><p>Monthly and yearly subscription spend, charges due this week, and an honest "money protected" total. Plus calendar export for your phone.</p></div>
         </div>
       </div>
     </section>
 
-    <section class="section">
+    <section class="section alt">
       <div class="container">
         <div class="section-head reveal">
           <span class="kicker">The nudge timeline</span>
           <h2>You'll hear from us before every charge</h2>
-          <p>Long trials also get a heads-up five days out. Choose which nudges you want in Settings.</p>
+          <p>For trials. Long trials also get a heads-up five days out, and every subscription gets a reminder 3 days and 1 day before it renews. Choose which nudges you want in Settings.</p>
         </div>
         <div class="timeline reveal">
           <div class="tl"><div class="dotc">2d</div><div><b>Two days before</b><span>Time to decide</span></div></div>
@@ -420,18 +438,19 @@
       </div>
     </section>
 
-    <section class="section alt">
+    <section class="section">
       <div class="container">
         <div class="section-head reveal">
           <span class="kicker">Why TrialExit</span>
-          <h2>The only tracker that catches the trial for you</h2>
-          <p>Reminders are easy. Remembering to set them up is the part everyone forgets.</p>
+          <h2>Built to stop the charge, not report it afterwards</h2>
+          <p>Bank apps tell you after the money is gone. TrialExit warns you before, while you can still cancel.</p>
         </div>
         <div class="compare reveal">
           <table>
             <thead><tr><th></th><th>Manual trackers</th><th>Bank-linked apps</th><th class="us">TrialExit</th></tr></thead>
             <tbody>
               <tr><td>Catches the trial when you start it</td><td class="n">You type it in</td><td class="w">Only after you're charged</td><td class="us y">Automatically</td></tr>
+              <tr><td>Subscriptions with renewal reminders</td><td class="w">You type them in</td><td class="w">After the charge</td><td class="us y">Found in Gmail, warned before</td></tr>
               <tr><td>Trials from your phone and app stores</td><td class="n">✕</td><td class="w">After the charge</td><td class="us y">Via Gmail scan</td></tr>
               <tr><td>Needs your bank or card login</td><td class="y">No</td><td class="n">Yes</td><td class="us y">Never</td></tr>
               <tr><td>Opens the exact cancel page</td><td class="w">Some</td><td class="n">✕</td><td class="us y">Yes, with steps</td></tr>
@@ -443,7 +462,7 @@
       </div>
     </section>
 
-    <section class="section" id="privacy">
+    <section class="section alt" id="privacy">
       <div class="container">
         <div class="privacy reveal">
           <div>
@@ -452,7 +471,7 @@
             <p>We built TrialExit so that we couldn't snoop even if we wanted to. Read the <a href="privacy.html" style="color:#4ade80">privacy policy</a> — it's short.</p>
           </div>
           <div class="promises">
-            <div class="promise"><span class="ic">🏦</span><div><b>No bank, no card, no passwords</b><span>We only store the trials you confirm: service, date, amount.</span></div></div>
+            <div class="promise"><span class="ic">🏦</span><div><b>No bank, no card, no passwords</b><span>We only store what you confirm: service, date, amount, billing cycle.</span></div></div>
             <div class="promise"><span class="ic">💻</span><div><b>Emails and pages are read on your device</b><span>Gmail access is optional and read-only. Nothing is uploaded — not to us, not to anyone.</span></div></div>
             <div class="promise"><span class="ic">🗑️</span><div><b>Leave any time</b><span>Export everything or delete your account in one click. We never sell data.</span></div></div>
           </div>
@@ -460,7 +479,7 @@
       </div>
     </section>
 
-    <section class="section alt" id="pricing">
+    <section class="section" id="pricing">
       <div class="container">
         <div class="section-head reveal">
           <span class="kicker">Pricing</span>
@@ -474,8 +493,8 @@
             <div class="amt">₹0</div>
             <div class="muted" style="color:var(--muted)">Everything, free during launch</div>
             <ul>
-              <li>Unlimited trials</li>
-              <li>Checkout detection + Gmail scan</li>
+              <li>Unlimited trials and subscriptions</li>
+              <li>Checkout detection + Gmail scan (several inboxes)</li>
               <li>Email, desktop and calendar reminders</li>
               <li>Early users keep it free for life</li>
             </ul>
@@ -501,11 +520,13 @@
       <div class="container">
         <div class="section-head reveal"><span class="kicker">FAQ</span><h2>Questions, answered</h2></div>
         <div class="faq">
+          <details><summary>What does TrialExit track?</summary><p>Four things: free trials you started, paid subscriptions (with what they cost per month and year), things you cancelled (and the money that saved you), and offers or discounts from services in your inbox.</p></details>
           <details><summary>Does TrialExit cancel subscriptions for me?</summary><p>No — and nothing that does it without your password should be trusted. We open the exact cancel page and show the steps, so cancelling takes about a minute.</p></details>
-          <details><summary>Do you read my emails?</summary><p>Only if you choose "Scan my Gmail", and only to find trial confirmation emails. Access is read-only, emails are read inside your browser and never uploaded. You can disconnect any time.</p></details>
+          <details><summary>Do you read my emails?</summary><p>Only if you choose "Scan my Gmail", and only to find trial, subscription, cancellation and offer emails. Access is read-only, emails are read inside your browser and never uploaded. You can disconnect any time.</p></details>
           <details><summary>Does it work on my phone?</summary><p>Yes — the web app works on any phone and sends reminders by email. The Chrome extension (automatic checkout detection) is for computers.</p></details>
-          <details><summary>Which services are supported?</summary><p>Any service with a free trial. For popular ones like Netflix, Spotify, YouTube Premium, ChatGPT, Prime Video, JioHotstar, Adobe and Canva we also have direct cancel links and steps.</p></details>
+          <details><summary>Which services are supported?</summary><p>Any service with a free trial or subscription. For popular ones like Netflix, Spotify, YouTube Premium, ChatGPT, Prime Video, JioHotstar, Adobe and Canva we also have direct cancel links and steps.</p></details>
           <details><summary>What if a cancel link is wrong?</summary><p>Every link shows when it was last checked. Report it and we fix it for everyone — no app update needed.</p></details>
+          <details><summary>How is "money protected" counted?</summary><p>Only real avoided charges: a trial you cancelled before it charged counts its price once; a subscription you cancelled counts each renewal that has since passed without charging you. No guesses, no inflated numbers.</p></details>
           <details><summary>How much does it cost?</summary><p>Free during launch, and early users keep it free. Later there'll be a one-time lifetime unlock — never a subscription.</p></details>
         </div>
       </div>
@@ -514,7 +535,7 @@
     <section class="section" style="padding-top: 0">
       <div class="container">
         <div class="final reveal">
-          <h2>Stop paying for trials you forgot.</h2>
+          <h2>Stop losing money to things you forgot.</h2>
           <p>Set up in 30 seconds. Free during launch.</p>
           <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
             <a class="btn primary" href="app/#/signup">Get started free</a>
@@ -529,7 +550,7 @@
         <div class="cols">
           <div>
             <a class="logo" href="./" style="margin:0 0 10px"><span class="mark">✓</span>TrialExit</a>
-            <div style="max-width:300px">Catch every free trial before it charges you. Not affiliated with any of the services listed.</div>
+            <div style="max-width:300px">Trials, subscriptions and offers in one place, so you never lose money to a charge you forgot. Not affiliated with any of the services listed.</div>
           </div>
           <div><h4>Product</h4><a href="app/#/signup">Web app</a><a href="install.html">Chrome extension</a><a href="#pricing">Pricing</a></div>
           <div><h4>Company</h4><a href="https://github.com/lowkyalekkala29/trialexit">Open source</a><a href="https://github.com/lowkyalekkala29/trialexit/issues/new?title=Feedback">Feedback</a><a href="https://github.com/lowkyalekkala29/trialexit/issues/new?title=Broken%20cancel%20link">Report a link</a></div>

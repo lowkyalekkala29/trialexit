@@ -18,6 +18,8 @@ export const FREE_TRIAL_LIMIT = 3;
  * @returns {import('./types.js').Trial['status']}
  */
 export function derivedStatus(t, now = new Date()) {
+  // Subscriptions roll on to their next charge; they never become "charged".
+  if (t.kind === 'subscription') return t.status === 'confirmed_cancelled' ? 'confirmed_cancelled' : 'active';
   if ((t.status === 'active' || t.status === 'awaiting_confirmation') && msUntil(t.renewsAt, now) <= 0) return 'charged';
   return t.status;
 }
@@ -76,6 +78,10 @@ export function transition(trials, id, next, now = new Date()) {
   return trials.map((t) => {
     if (t.id !== id) return t;
     if (next === 'confirmed_cancelled') return { ...t, status: next, cancelledAt: stamp, updatedAt: stamp };
+    // Keeping a trial turns it into a subscription that renews from its first charge.
+    if (next === 'kept' && t.kind !== 'subscription') {
+      return { ...t, kind: 'subscription', cycle: t.cycle ?? 'monthly', status: 'active', updatedAt: stamp };
+    }
     if (next === 'active') return { ...t, status: next, cancelledAt: null, updatedAt: stamp };
     return { ...t, status: next, updatedAt: stamp };
   });

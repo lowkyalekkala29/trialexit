@@ -2,10 +2,11 @@
  * Email → trial suggestions. No browser-extension APIs here, so the web app
  * can use it too. Email content is only ever handled in memory, on the device.
  */
-import { parseTrialEmail, classifyTrialEmail } from './core/guess.js';
+import { parseTrialEmail, classifyTrialEmail, classifyEmailType, extractOffer } from './core/guess.js';
+import { detectCycle, addCycle } from './core/money.js';
 
 /** Bump when the rules change: older suggestions are discarded and re-scanned. */
-export const CANDIDATE_VERSION = 6;
+export const CANDIDATE_VERSION = 7;
 
 /** "Netflix <info@mailer.netflix.com>" → "Netflix" */
 export function senderName(from) {
@@ -33,7 +34,10 @@ const addressOf = (from) => (String(from ?? '').match(/<([^>]+)>/)?.[1] ?? Strin
  */
 /** Plain-language reasons shown in "What did the scan check?". */
 export const VERDICTS = {
-  found: 'Found — ready to track',
+  found: 'Found — trial ready to track',
+  'found-sub': 'Found — paid subscription',
+  'found-cancel': 'Found — you cancelled this',
+  'found-offer': 'Found — offer or discount',
   'from-you': 'Sent by you',
   ad: 'Looks like an ad',
   'no-signal': 'No sign you started a trial',
@@ -44,6 +48,14 @@ export const VERDICTS = {
   tracked: 'Already tracking this',
   duplicate: 'Same service as another email',
 };
+
+/** The suggestion without report-only fields. */
+const pick = ({ verdict, account, ...rest }) => rest;
+
+/** Suggestion kind; older stored suggestions are all trials. */
+export const candidateType = (c) => c?.type ?? 'trial';
+/** Same suggestion? (same service and kind) */
+export const candidateKey = (c) => `${candidateType(c)}:${String(c.serviceId ?? c.serviceName).toLowerCase()}`;
 
 export async function collectCandidates(provider, messages, { directory, trials, ownEmail = null, ownName = null }) {
   const found = new Map();
@@ -56,6 +68,14 @@ export async function collectCandidates(provider, messages, { directory, trials,
     scanned++;
     const received = mail.date ? new Date(mail.date) : new Date();
     const parsed = parseTrialEmail(mail.text, directory, received);
+    // "You have 30 days to explore …": a trial length worded without "trial".
+    if (!parsed.days && !parsed.renewsOn) {
+      const n = Number(mail.text.match(/\byou\s+(?:have|get|now\s+have)\s+(\d{1,3})\s*(?:-\s*)?days?\s+(?:left\s+)?(?:to|of)\b/i)?.[1]);
+      if (n > 0 && n <= 100) {
+        parsed.days = { days: n, matched: `${n} days` };
+        parsed.renewsOn = new Date(received.getTime() + n * 864e5).toISOString().slice(0, 10);
+      }
+    }
     const name = parsed.serviceName ?? senderName(mail.from);
     const entry = {
       messageId: `${provider}:${mail.id}`,
@@ -80,6 +100,46 @@ export async function collectCandidates(provider, messages, { directory, trials,
     };
     // Emails the user sent or forwarded to themselves are not trial confirmations.
     if (me && addressOf(mail.from) === me) { skip('from-you'); continue; }
+    const type = classifyEmailType(mail.text);
+    const key0 = (parsed.entry?.serviceId ?? name).toLowerCase();
+    const isMine = (t) => t.serviceId === parsed.entry?.serviceId && t.serviceId || t.serviceName.toLowerCase() === String(name).toLowerCase();
+    if (!parsed.entry && myName && String(name).trim().toLowerCase() === myName) { skip('person-name'); continue; }
+
+    if (type === 'offer') {
+      const o = extractOffer(mail.text, received);
+      if (o.endsOn && Date.parse(o.endsOn) < Date.now() - 864e5) { skip('ended'); continue; }
+      const key = `offer:${key0}`;
+      if (found.has(key)) { skip('duplicate'); continue; }
+      entry.verdict = 'found-offer';
+      found.set(key, { v: CANDIDATE_VERSION, ...pick(entry), type: 'offer', discount: o.discount, endsOn: o.endsOn });
+      continue;
+    }
+    if (type === 'cancellation') {
+      const match = trials.find((t) => isMine(t) && t.status !== 'confirmed_cancelled');
+      if (!match && trials.some((t) => isMine(t))) { skip('tracked'); continue; }
+      const key = `cancel:${key0}`;
+      if (found.has(key)) { skip('duplicate'); continue; }
+      entry.verdict = 'found-cancel';
+      found.set(key, { v: CANDIDATE_VERSION, ...pick(entry), type: 'cancellation', matchId: match?.id ?? null, cancelledOn: received.toISOString().slice(0, 10) });
+      continue;
+    }
+    if (type === 'subscription') {
+      if (trials.some((t) => isMine(t) && t.status !== 'confirmed_cancelled')) { skip('tracked'); continue; }
+      const key = `sub:${key0}`;
+      if (found.has(key)) { skip('duplicate'); continue; }
+      const cycle = detectCycle(mail.text) ?? 'monthly';
+      // Next charge: the date in the email, else one cycle after this receipt.
+      let next = parsed.renewsOn && Date.parse(parsed.renewsOn) > Date.now() ? parsed.renewsOn : null;
+      if (!next) {
+        let d = addCycle(received, cycle);
+        for (let i = 0; d.getTime() < Date.now() && i < 60; i++) d = addCycle(d, cycle);
+        next = d.toISOString().slice(0, 10);
+      }
+      entry.verdict = 'found-sub';
+      found.set(key, { v: CANDIDATE_VERSION, ...pick(entry), type: 'subscription', cycle, renewsOn: next });
+      continue;
+    }
+
     // Only emails confirming a trial the user started — not "Try Premium free" ads.
     const { kind } = classifyTrialEmail(mail.text);
     if (kind === 'promo') { skip('ad'); continue; }
@@ -87,18 +147,15 @@ export async function collectCandidates(provider, messages, { directory, trials,
     if (!parsed.entry && !parsed.renewalMatched && !parsed.days) { skip('no-details'); continue; }
     if (parsed.renewsOn && Date.parse(parsed.renewsOn) < Date.now() - 3 * 864e5) { skip('ended'); continue; }
     if (parsed.renewsOn && Date.parse(parsed.renewsOn) - received.getTime() > MAX_TRIAL_AHEAD_DAYS * 864e5) { skip('too-far'); continue; }
-    // A person's name (e.g. the user's own) is never a service.
-    if (!parsed.entry && myName && String(name).trim().toLowerCase() === myName) { skip('person-name'); continue; }
     const tracked = trials.some(
       (t) =>
         (t.serviceId === parsed.entry?.serviceId || t.serviceName.toLowerCase() === String(name).toLowerCase()) &&
         ['active', 'awaiting_confirmation'].includes(t.status),
     );
     if (tracked) { skip('tracked'); continue; }
-    const key = (parsed.entry?.serviceId ?? name).toLowerCase();
+    const key = `trial:${key0}`;
     if (found.has(key)) { skip('duplicate'); continue; } // newest email first; keep it
-    const { verdict, account, ...candidate } = entry;
-    found.set(key, { v: CANDIDATE_VERSION, ...candidate });
+    found.set(key, { v: CANDIDATE_VERSION, ...pick(entry), type: 'trial' });
   }
   return { candidates: [...found.values()], scanned, report };
 }

@@ -20,6 +20,7 @@ export const state = {
   /** @type {string|null} */ editingId: null,
   addOpen: false,
   /** @type {'pick'|'paste'|'manual'} */ addTab: 'pick',
+  /** @type {'trial'|'subscription'} */ addKind: 'trial',
   quick: /** @type {{serviceId: string|null, when: number|string}} */ ({ serviceId: null, when: 7 }),
   ob: { picked: /** @type {string[]} */ ([]), when: /** @type {Record<string, number|string>} */ ({}) },
   mail: { candidates: /** @type {any[]} */ ([]), busy: /** @type {any} */ (false), error: '', report: /** @type {any} */ (null) },
@@ -162,6 +163,8 @@ export function removeTrial(id) {
 
 /** 'attention' | 'upcoming' | 'resolved' */
 export function bucket(t, at = now()) {
+  // Subscriptions have their own page; they never show as trial cards.
+  if (t.kind === 'subscription') return t.status === 'confirmed_cancelled' ? 'resolved' : 'subscription';
   const st = derivedStatus(t, at);
   if (st === 'confirmed_cancelled' || st === 'kept' || st === 'dismissed' || t.status === 'charged') return 'resolved';
   if (st === 'charged' || st === 'awaiting_confirmation') return 'attention';

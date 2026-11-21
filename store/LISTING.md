@@ -8,18 +8,24 @@ Upload: `dist/trialexit-<version>.zip` from `npm run package`.
 **Name:** TrialExit
 
 **Summary (≤132 chars):**
-Catches every free trial you start — on any site and in Gmail — and nudges you before they charge, with a one-click cancel link.
+Stop losing money to forgotten trials and subscriptions. Warned before every charge, with a one-click cancel link. Offers too.
 
 **Category:** Productivity  **Language:** English
 
 **Description:**
 ```
-Free trials are built to be forgotten. You hand over your card for a 7-day trial, life happens, and the charge lands.
+Free trials are built to be forgotten, and subscriptions renew while you're not looking. TrialExit protects you from losing money to either one.
+
+ONE DASHBOARD, FOUR LISTS
+• Trials: every free trial you started, with a countdown to the charge
+• Subscriptions: what you pay each month and year, and a reminder 3 days and 1 day before each renewal
+• Cancelled: "money protected", every charge you avoided, counted honestly
+• Offers: discounts and deals from services in your inbox, with when they expire
 
 TrialExit fixes the part a calendar reminder doesn't: when the alert fires, one click opens the service's actual cancellation page — not the homepage, not a help article.
 
 HOW IT WORKS
-• Catch every trial: connect Gmail (read-only) and TrialExit finds trial confirmation emails — including trials started on your phone or in app stores. It also spots trials on checkout pages as you sign up.
+• Catch every trial: connect Gmail (read-only) and TrialExit finds trial, subscription, cancellation and offer emails — including trials started on your phone or in app stores. It also spots trials on checkout pages as you sign up.
 • Get nudged as the charge gets closer: 2 days, 1 day, 6 hours and 1 hour before (plus a 5-day heads-up on long trials), and a morning digest of what renews this week.
 • Click the notification → the exact cancel page opens. Afterwards, TrialExit asks "Did it renew?" so every trial ends as cancelled, kept or charged — nothing slips through.
 

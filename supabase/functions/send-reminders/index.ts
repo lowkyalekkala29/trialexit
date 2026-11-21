@@ -8,6 +8,7 @@ import { notificationTitle } from '../_shared/alerts.js';
 import { signAction } from '../_shared/signing.js';
 import { formatMoney, formatRenewalLocal } from '../_shared/dates.js';
 import { reminderEmail } from '../_shared/email.js';
+import { nextCharge } from '../_shared/money.js';
 
 const env = (k: string) => Deno.env.get(k) ?? '';
 
@@ -23,14 +24,16 @@ Deno.serve(async (req) => {
   const from = new Date(now.getTime() - 6 * 3600_000).toISOString();
   const to = new Date(now.getTime() + 6 * 86_400_000).toISOString();
 
-  const { data: rows, error } = await db
-    .from('trials')
-    .select('*, profiles!inner(name, reminder_email, reminder_skip)')
-    .is('deleted_at', null)
-    .in('status', ['active', 'awaiting_confirmation'])
-    .gte('renews_at', from)
-    .lte('renews_at', to);
+  const sel = '*, profiles!inner(name, reminder_email, reminder_skip)';
+  const [trialQ, subQ] = await Promise.all([
+    db.from('trials').select(sel).is('deleted_at', null).neq('kind', 'subscription')
+      .in('status', ['active', 'awaiting_confirmation']).gte('renews_at', from).lte('renews_at', to),
+    // Subscriptions repeat, so every live one is checked for its next renewal.
+    db.from('trials').select(sel).is('deleted_at', null).eq('kind', 'subscription').neq('status', 'confirmed_cancelled'),
+  ]);
+  const error = trialQ.error ?? subQ.error;
   if (error) return new Response(error.message, { status: 500 });
+  const rows = [...(trialQ.data ?? []), ...(subQ.data ?? [])];
 
   // Cancel links come from the public, community-maintained directory.
   const directory = await fetch('https://raw.githubusercontent.com/lowkyalekkala29/trialexit/main/directory/directory.json')
@@ -39,10 +42,10 @@ Deno.serve(async (req) => {
 
   let sent = 0;
   const failures: string[] = [];
-  for (const r of rows ?? []) {
+  for (const r of rows) {
     if (!r.profiles?.reminder_email) continue;
     const { data: log } = await db.from('reminder_log').select('kind').eq('trial_id', r.id);
-    const trial = { renewsAt: r.renews_at, trialLengthDays: r.trial_length_days, status: r.status };
+    const trial = { renewsAt: r.renews_at, trialLengthDays: r.trial_length_days, status: r.status, kind: r.kind, cycle: r.cycle };
     const due = dueReminder(trial, now, (log ?? []).map((l) => l.kind), r.profiles.reminder_skip ?? []);
     if (!due) continue;
 
@@ -60,13 +63,15 @@ Deno.serve(async (req) => {
     const link = async (action: string) =>
       `${env('SUPABASE_URL')}/functions/v1/trial-action?t=${r.id}&a=${action}&e=${exp}&s=${await signAction({ trialId: r.id, action, exp }, actionSecret)}`;
     const t = { serviceName: r.service_name, amount: r.amount, currency: r.currency };
+    const baseKind = due.kind.split(':')[0];
+    const chargeAt = r.kind === 'subscription' ? nextCharge(trial, now).toISOString() : r.renews_at;
     const mail = reminderEmail({
       name: r.profiles.name,
-      kind: due.kind,
-      title: notificationTitle(t as any, due.kind as any),
+      kind: baseKind,
+      title: notificationTitle(t as any, baseKind as any),
       service: r.service_name,
       amount: r.amount ? formatMoney(r.amount, r.currency) : null,
-      renews: formatRenewalLocal(r.renews_at, r.timezone),
+      renews: formatRenewalLocal(chargeAt, r.timezone),
       cancelUrl: entry?.cancelUrl ?? null,
       steps: entry?.steps ?? [],
       requiresChat: Boolean(entry?.requiresChat),
@@ -93,7 +98,7 @@ Deno.serve(async (req) => {
       await db.from('reminder_log').delete().eq('trial_id', r.id).eq('kind', due.kind); // retry next run
     }
   }
-  return Response.json({ ok: failures.length === 0, checked: rows?.length ?? 0, sent, failures });
+  return Response.json({ ok: failures.length === 0, checked: rows.length, sent, failures });
 });
 
 function parseSender(v: string) {

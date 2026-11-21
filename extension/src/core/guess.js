@@ -296,7 +296,11 @@ export function parseTrialEmail(text, directory, now = new Date()) {
  * or the product fills up with trials that never existed.
  * ------------------------------------------------------------------------- */
 
+/** "You have 30 days to explore …" — an evaluation period, i.e. a trial in other words. */
+const EVAL_PERIOD = /\byou\s+(?:have|get|now\s+have)\s+(?:\d{1,3}|fourteen|thirty|seven)\s*(?:-\s*)?days?\s+(?:left\s+)?(?:to\s+(?:explore|try|evaluate|test|use)|of\s+(?:full\s+)?access)\b|\b(?:evaluation|eval)\s+(?:period|licen[cs]e|account)\b/i;
+
 const CONFIRM_SIGNALS = [
+  EVAL_PERIOD,
   /\b(?:subscription|membership)\s+(?:has\s+been\s+|is\s+(?:now\s+)?)?(?:activated|started|confirmed|active)\b/i,
   /\bwelcome\s+to\s+(?:[\w.+-]+\s+){0,2}(?:premium|plus|pro|prime|gold|membership)\b/i,
   /\byou(?:'|’)?re\s+(?:now\s+)?(?:a\s+)?(?:subscribed|member|premium\s+member)\b|\byou\s+are\s+(?:now\s+)?subscribed\b/i,
@@ -362,4 +366,56 @@ export function classifyTrialEmail(text) {
   else if (promo > 0) kind = 'promo';
   else kind = 'unknown';
   return { kind: /** @type {'confirmation'|'promo'|'unknown'} */ (kind), confirm, promo };
+}
+
+/* ---------------------------------------------------------------------------
+ * What kind of money email is this?
+ *   trial        a free trial you started
+ *   subscription a paid subscription you have (receipt, renewal, "subscribed")
+ *   cancellation a trial/subscription you cancelled
+ *   offer        a discount / deal / coupon (marketing we surface as Offers)
+ *   other
+ * ------------------------------------------------------------------------- */
+
+const CANCELLED = /\b(?:subscription|membership|plan|trial|auto[-\s]?renew(?:al)?)\s+(?:has\s+been\s+|was\s+|is\s+(?:now\s+)?)?(?:cancell?ed|terminated|turned\s+off|stopped)\b|\bsorry\s+to\s+see\s+you\s+go\b|\byou(?:'|’)?ve\s+(?:successfully\s+)?cancell?ed\b|\bcancell?ation\s+(?:confirmation|confirmed|successful|is\s+complete)\b|\b(?:e-?mandate|mandate|auto\s?pay)\s+(?:has\s+been\s+|was\s+)?(?:revoked|cancell?ed|paused)\b/i;
+
+const PAID = /\b(?:payment\s+(?:received|successful|confirmed|confirmation)|thanks?\s+(?:you\s+)?for\s+your\s+payment|receipt|invoice|has\s+been\s+renewed|renewal\s+(?:confirmation|successful|complete)|successfully\s+renewed|your\s+(?:monthly|annual|yearly)\s+(?:plan|subscription|membership)|you(?:'|’)?re\s+(?:now\s+)?subscribed|subscription\s+(?:confirmation|confirmed|activated|started|is\s+active)|membership\s+(?:activated|confirmed|renewed)|amount\s+(?:charged|debited)|debited\s+(?:for|towards))\b/i;
+
+/** Words that make a payment email about a subscription (not a one-off order). */
+const SUB_CONTEXT = /\bsubscri|\bmembership\b|\bpremium\b|\bplan\b|\brenew|\bper\s+(?:month|year)\b|\/(?:month|mo|year|yr)\b|\bmonthly\b|\bannual(?:ly)?\b|\bauto\s?pay\b|\bmandate\b|\bbilling\s+(?:cycle|period)\b/i;
+
+const DISCOUNT = /\b\d{1,2}\s?%\s*off\b|(?:₹|rs\.?\s?|\$)\s?\d[\d,]*\s*off\b|\bdiscount\b|\bcoupon\b|\bpromo\s*code\b|\bcashback\b|\bsave\s+(?:up\s+to\s+)?(?:₹|rs\.?|\$|\d)|\bfree\s+for\s+\d+\s+(?:months?|weeks?|days?)\b|\b(?:just|only|at)\s+(?:₹|rs\.?\s?|\$)\s?\d|\bspecial\s+(?:price|offer)\b|\blimited[-\s]time\b|\bflat\s+(?:₹|rs\.?|\$)?\s?\d|\bdeal\b|\bsale\b|\boffer\b/i;
+
+/**
+ * @param {string} text subject + sender + body
+ * @returns {'trial'|'subscription'|'cancellation'|'offer'|'other'}
+ */
+export function classifyEmailType(text) {
+  const src = String(text ?? '');
+  if (CANCELLED.test(src)) return 'cancellation';
+  const { kind } = classifyTrialEmail(src);
+  if (kind === 'promo') return DISCOUNT.test(src) ? 'offer' : 'other';
+  const mentionsTrial = /\btrial\b/i.test(src) || EVAL_PERIOD.test(src);
+  if (kind === 'confirmation' && mentionsTrial) return 'trial';
+  if ((kind === 'confirmation' || PAID.test(src)) && SUB_CONTEXT.test(src)) return 'subscription';
+  if (DISCOUNT.test(src) && /\b(?:offer|deal|sale|discount|coupon|cashback|% off|save)\b/i.test(src.split('\n', 1)[0] ?? '')) return 'offer';
+  return 'other';
+}
+
+/**
+ * Offer details: the discount wording and when it ends.
+ * @returns {{ discount: string|null, endsOn: string|null }}
+ */
+export function extractOffer(text, now = new Date()) {
+  const src = String(text ?? '');
+  const d =
+    src.match(/\b\d{1,2}\s?%\s*off\b/i)?.[0] ??
+    src.match(/(?:₹|rs\.?\s?|\$)\s?\d[\d,]*\s*off\b/i)?.[0] ??
+    src.match(/\b(?:just|only|at)\s+(?:₹|rs\.?\s?|\$)\s?\d[\d,.]*(?:\s*(?:\/|for|a|per)\s*\w+(?:\s+\w+)?)?/i)?.[0] ??
+    src.match(/\bfree\s+for\s+\d+\s+(?:months?|weeks?|days?)\b/i)?.[0] ??
+    src.match(/\b\d+\s?%\s*cashback\b|\bcashback\s+of\s+(?:₹|\$)\s?\d+/i)?.[0] ??
+    null;
+  // "offer ends 30 Nov", "valid till 5 Dec", "expires on …"
+  const ends = extractRenewalDate(src.replace(/\b(?:valid\s+(?:till|until|through)|offer\s+(?:ends|expires|valid)|ends|expires|until|till|last\s+date)\b/gi, 'ends on'), now);
+  return { discount: d ? d.trim() : null, endsOn: ends?.date ?? null };
 }

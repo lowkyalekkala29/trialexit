@@ -6,7 +6,7 @@
  * Routes:
  *   #/signup  #/signin                         (signed out)
  *   #/onboarding/1..5                          (signed in, not onboarded)
- *   #/  #/trials  #/savings  #/settings/<tab>  #/help
+ *   #/  #/trials  #/subscriptions  #/cancelled  #/offers  #/settings/<tab>  #/help
  */
 import { state, $, esc, IS_WEB, DEFAULT_SETTINGS, save, toast, pickWorkerFields, loadBundledDirectory, refreshDirectory, initials } from './state.js';
 import { normalizeDirectory } from './core/directory.js';
@@ -17,7 +17,9 @@ import { pullProfile, pushProfile, syncTrials, PROFILE_FIELDS } from './cloud.js
 import { authHtml, authActions, mountGoogleButton } from './view-auth.js';
 import { onboardingHtml, onboardingActions } from './view-onboarding.js';
 import { dashboardHtml, trialsHtml, addModalHtml, mailHtml, homeActions, scanReportHtml } from './view-home.js';
-import { savingsHtml, settingsHtml, helpHtml, accountActions } from './view-account.js';
+import { settingsHtml, helpHtml, accountActions } from './view-account.js';
+import { subscriptionsHtml, cancelledHtml, offersHtml } from './view-money.js';
+import { candidateType } from './mail-candidates.js';
 import { bucket, newTrial, deviceZone } from './state.js';
 import { scanGmailWeb, disconnectGmailWeb, hasLiveGmailToken, loadGis } from './web-mail.js';
 import { CANDIDATE_VERSION } from './mail-candidates.js';
@@ -28,15 +30,28 @@ const ICON = {
   list: '<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>',
   piggy: '<path d="M19 9a7 7 0 0 0-13.5 2.6V16l-2 2 2 1 1-2h9l1 2 2-1-1-2.4A7 7 0 0 0 19 12h2v-3z"/><circle cx="15" cy="10" r=".8"/>',
   gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+  repeat: '<path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/>',
+  tag: '<path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.2"/>',
   help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17.5h.01"/>',
 };
 const icon = (k) => `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k]}</svg>`;
 const NAV = [
   ['#/', 'Dashboard', 'home'],
   ['#/trials', 'Trials', 'list'],
-  ['#/savings', 'Savings', 'piggy'],
+  ['#/subscriptions', 'Subscriptions', 'repeat'],
+  ['#/cancelled', 'Cancelled', 'piggy'],
+  ['#/offers', 'Offers', 'tag'],
   ['#/settings/profile', 'Settings', 'gear'],
   ['#/help', 'Help', 'help'],
+];
+
+/** Phone bottom bar: five short tabs (Offers is one tap away on the dashboard). */
+const TABBAR = [
+  ['#/', 'Home', 'home'],
+  ['#/trials', 'Trials', 'list'],
+  ['#/subscriptions', 'Subs', 'repeat'],
+  ['#/cancelled', 'Saved', 'piggy'],
+  ['#/settings/profile', 'Settings', 'gear'],
 ];
 
 /* ------------------------------------------------------------------ route */
@@ -122,12 +137,14 @@ function render() {
 
   const page =
     r.path === '/trials' ? trialsHtml()
-    : r.path === '/savings' ? savingsHtml()
+    : r.path === '/savings' || r.path === '/cancelled' ? cancelledHtml()
+    : r.path === '/subscriptions' ? subscriptionsHtml()
+    : r.path === '/offers' ? offersHtml()
     : r.path === '/settings' ? settingsHtml(r.sub || 'profile')
     : r.path === '/help' ? helpHtml()
     : r.path === '/scan-report' ? scanReportHtml()
     : dashboardHtml();
-  document.title = `${{ '/trials': 'Trials', '/savings': 'Savings', '/settings': 'Settings', '/help': 'Help' }[r.path] ?? 'Dashboard'} — TrialExit`;
+  document.title = `${{ '/trials': 'Trials', '/subscriptions': 'Subscriptions', '/cancelled': 'Cancelled', '/savings': 'Cancelled', '/offers': 'Offers', '/settings': 'Settings', '/help': 'Help' }[r.path] ?? 'Dashboard'} — TrialExit`;
   const u = state.session?.user;
   const who = state.settings.name || u?.name || u?.email || 'Guest';
   const attention = state.trials.filter((t) => bucket(t) === 'attention').length;
@@ -144,7 +161,7 @@ function render() {
       </div>
     </aside>
     <main class="content" id="content">${r.path === '/' ? installBannerHtml() : ''}${page}</main>
-    <nav class="tabbar">${NAV.slice(0, 4).map(([href, label, ic]) => `<a href="${href}" class="${active(href) ? 'on' : ''}">${icon(ic)}<span>${label}</span></a>`).join('')}</nav>
+    <nav class="tabbar">${TABBAR.map(([href, label, ic]) => `<a href="${href}" class="${active(href) ? 'on' : ''}">${icon(ic)}<span>${label}</span></a>`).join('')}</nav>
   </div>${addModalHtml()}`;
   afterRender();
 }
@@ -435,8 +452,8 @@ async function dismissCandidate(id) {
   });
 }
 
-async function trackCandidate(c, date) {
-  if (!IS_WEB) return chrome.runtime.sendMessage({ type: 'add-trial', trial: { ...c, renewsOn: date, source: c.account ? `${c.provider}:${c.account}` : c.provider } });
+async function trackCandidate(c, date, extra = {}) {
+  if (!IS_WEB && candidateType(c) === 'trial') return chrome.runtime.sendMessage({ type: 'add-trial', trial: { ...c, renewsOn: date, source: c.account ? `${c.provider}:${c.account}` : c.provider } });
   const entry = (c.serviceId && state.directory.find((e) => e.serviceId === c.serviceId)) || null;
   const currency = c.currency ?? (state.settings.region === 'US' ? 'USD' : 'INR');
   const renewsAt = zonedWallTimeToInstant(date, '00:00', state.settings.timezone || deviceZone).toISOString();
@@ -452,6 +469,7 @@ async function trackCandidate(c, date) {
       currency,
       trialLengthDays: Number(c.trialLengthDays) || Math.max(1, Math.round((Date.parse(renewsAt) - Date.now()) / 864e5)),
       source: c.account ? `${c.provider}:${c.account}` : c.provider,
+      ...extra,
     }),
   ];
   await persist();
@@ -494,14 +512,37 @@ const mailActions = {
     const c = state.mail.candidates.find((x) => x.messageId === el.dataset.id);
     const date = /** @type {HTMLInputElement|null} */ (document.querySelector(`[data-mail-date="${CSS.escape(el.dataset.id)}"]`))?.value;
     if (!c) return;
-    if (!date) return toast('Set the end date first.');
-    const res = await trackCandidate(c, date);
+    if (!date) return toast(candidateType(c) === 'subscription' ? 'Set the next charge date first.' : 'Set the end date first.');
+    const isSub = candidateType(c) === 'subscription';
+    const field = (k) => /** @type {HTMLInputElement|null} */ (document.querySelector(`[data-mail-${k}="${CSS.escape(el.dataset.id)}"]`))?.value;
+    if (isSub) {
+      state.trials = (await chrome.storage.local.get('trials')).trials ?? state.trials;
+      c.amount = field('amount') === '' || field('amount') == null ? c.amount : Number(field('amount'));
+    }
+    const res = await trackCandidate(c, date, isSub ? { kind: 'subscription', cycle: field('cycle') || c.cycle || 'monthly' } : {});
     if (!res?.ok) return toast(res?.reason ?? 'Could not save');
     await dismissCandidate(el.dataset.id);
     state.mail.candidates = state.mail.candidates.filter((x) => x.messageId !== el.dataset.id);
     state.trials = (await chrome.storage.local.get('trials')).trials ?? state.trials;
-    toast(`Tracking ${c.serviceName}.`);
+    toast(isSub ? `${c.serviceName} added to Subscriptions.` : `Tracking ${c.serviceName}.`);
     persist();
+    render();
+  },
+  'mail-cancel': async (el) => {
+    const c = state.mail.candidates.find((x) => x.messageId === el.dataset.id);
+    if (!c) return;
+    state.trials = (await chrome.storage.local.get('trials')).trials ?? state.trials;
+    const at = new Date(`${c.cancelledOn ?? new Date().toISOString().slice(0, 10)}T12:00:00Z`).toISOString();
+    if (c.matchId && state.trials.some((t) => t.id === c.matchId)) {
+      state.trials = state.trials.map((t) => (t.id === c.matchId ? { ...t, status: 'confirmed_cancelled', cancelledAt: at, updatedAt: new Date().toISOString() } : t));
+      await persist();
+    } else {
+      // Not tracked yet: record it as a cancelled subscription (no money claimed until a renewal passes).
+      await trackCandidate(c, at.slice(0, 10), { kind: 'subscription', cycle: 'monthly', status: 'confirmed_cancelled', cancelledAt: at });
+    }
+    await dismissCandidate(el.dataset.id);
+    state.mail.candidates = state.mail.candidates.filter((x) => x.messageId !== el.dataset.id);
+    toast(`${c.serviceName} is in Cancelled.`);
     render();
   },
 };

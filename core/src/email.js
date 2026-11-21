@@ -13,11 +13,14 @@ const URGENT = new Set(['final', 'urgent', 'lastcall', 'immediate']);
  */
 export function reminderEmail(d) {
   const checkin = d.kind === 'checkin';
+  const sub = d.kind === 'sub3d' || d.kind === 'sub1d';
   const subject = checkin ? `Did ${d.service} renew?` : URGENT.has(d.kind) ? `⏰ ${d.title}` : d.title;
   const color = URGENT.has(d.kind) ? '#dc2626' : '#16a34a';
   const lead = checkin
     ? `Your ${esc(d.service)} trial was due to renew on <b>${esc(d.renews)}</b>. Tell us what happened so nothing slips into a subscription you didn't want.`
-    : `${d.amount ? `<b>${esc(d.amount)}</b> will be charged` : 'Your trial converts to a paid plan'} on <b>${esc(d.renews)}</b> unless you cancel.`;
+    : sub
+      ? `Your ${esc(d.service)} subscription renews on <b>${esc(d.renews)}</b>${d.amount ? ` for <b>${esc(d.amount)}</b>` : ''}. Still using it? If not, cancel now and keep that money.`
+      : `${d.amount ? `<b>${esc(d.amount)}</b> will be charged` : 'Your trial converts to a paid plan'} on <b>${esc(d.renews)}</b> unless you cancel.`;
   const btn = (href, label, primary) =>
     `<a href="${esc(href)}" style="display:inline-block;margin:4px 6px 4px 0;padding:10px 16px;border-radius:10px;text-decoration:none;font-weight:600;font-size:14px;${
       primary ? `background:${color};color:#ffffff` : 'background:#ffffff;color:#111827;border:1px solid #d0d5db'
@@ -35,17 +38,17 @@ export function reminderEmail(d) {
 <p style="margin:0 0 16px">${d.name ? `Hi ${esc(d.name)}, ` : ''}${lead}</p>
 ${d.requiresChat && !checkin ? '<p style="margin:0 0 14px;padding:10px 12px;background:#fff7ed;border-radius:10px;color:#9a3412">Heads up: this service usually needs support chat to cancel — allow a few extra minutes.</p>' : ''}
 ${!checkin && d.cancelUrl ? btn(d.cancelUrl, `Cancel ${d.service} now →`, true) : ''}
-<div style="margin-top:8px">${btn(d.cancelledLink, checkin ? 'I cancelled in time' : 'I already cancelled', checkin)}${btn(d.keptLink, "I'm keeping it", false)}${checkin ? btn(d.chargedLink, 'I got charged', false) : ''}</div>
+<div style="margin-top:8px">${btn(d.cancelledLink, checkin ? 'I cancelled in time' : sub ? 'I cancelled it' : 'I already cancelled', checkin)}${sub ? '' : btn(d.keptLink, "I'm keeping it", false)}${checkin ? btn(d.chargedLink, 'I got charged', false) : ''}</div>
 ${checkin ? '' : steps}
 <p style="margin:22px 0 0;color:#6b7280;font-size:13px">One click updates TrialExit — no sign-in needed. <a href="${esc(d.appUrl)}/app/" style="color:#16a34a">Open your trials</a> · <a href="${esc(d.appUrl)}/app/#/settings/notifications" style="color:#6b7280">Reminder settings</a></p>
 </td></tr></table></td></tr></table></body></html>`;
   const text = [
     d.title,
     '',
-    checkin ? `Your ${d.service} trial was due to renew on ${d.renews}. Did it renew?` : `${d.amount ? `${d.amount} will be charged` : 'Your trial converts to paid'} on ${d.renews} unless you cancel.`,
+    checkin ? `Your ${d.service} trial was due to renew on ${d.renews}. Did it renew?` : sub ? `Your ${d.service} subscription renews on ${d.renews}${d.amount ? ` for ${d.amount}` : ''}. Not using it? Cancel now.` : `${d.amount ? `${d.amount} will be charged` : 'Your trial converts to paid'} on ${d.renews} unless you cancel.`,
     !checkin && d.cancelUrl ? `Cancel now: ${d.cancelUrl}` : '',
     `I cancelled: ${d.cancelledLink}`,
-    `I'm keeping it: ${d.keptLink}`,
+    sub ? '' : `I'm keeping it: ${d.keptLink}`,
     checkin ? `I got charged: ${d.chargedLink}` : '',
     '',
     `Your trials: ${d.appUrl}/app/`,

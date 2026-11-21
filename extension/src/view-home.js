@@ -11,6 +11,9 @@ import { zonedWallTimeToInstant, zonedParts, urgency, msUntil, formatCountdown, 
 import { derivedStatus, savedTotals, sortedForDisplay, transition, validateTrial, canAddTrial } from './core/store.js';
 import { parseTrialEmail } from './core/guess.js';
 import { downloadIcs } from './core/ics.js';
+import { isSubscription, nextCharge, CYCLES, cycleLabel } from './core/money.js';
+import { candidateType } from './mail-candidates.js';
+import { protectedHeroHtml, subscriptions, subCardHtml, suggestionsHtml, offerCandidates } from './view-money.js';
 
 const WHEN = [3, 7, 14, 30];
 const PROVIDER_LABEL = { gmail: 'Gmail', outlook: 'Outlook' };
@@ -96,7 +99,7 @@ function greeting() {
 }
 
 export function summaryHtml() {
-  const live = state.trials.filter((t) => bucket(t) !== 'resolved' && msUntil(t.renewsAt) > 0);
+  const live = state.trials.filter((t) => !isSubscription(t) && bucket(t) !== 'resolved' && msUntil(t.renewsAt) > 0);
   const urgent = live.filter((t) => msUntil(t.renewsAt) <= 48 * HOUR);
   const week = live.filter((t) => msUntil(t.renewsAt) <= 7 * DAY);
   const stake = { INR: 0, USD: 0 };
@@ -116,24 +119,32 @@ export function dashboardHtml() {
   const sorted = sortedForDisplay(state.trials);
   const attention = sorted.filter((t) => bucket(t) === 'attention');
   const upcoming = sorted.filter((t) => bucket(t) === 'upcoming');
+  const renewing = subscriptions()
+    .filter((t) => nextCharge(t).getTime() - Date.now() <= 7 * DAY)
+    .sort((a, b) => nextCharge(a).getTime() - nextCharge(b).getTime());
   const empty = !state.trials.length;
+  const subFound = state.mail.candidates.filter((c) => ['subscription', 'cancellation'].includes(candidateType(c)));
+  const offers = offerCandidates();
   return `<div class="page-head">
       <div><h1>${greeting()}</h1><p class="lede">${
-        attention.length
-          ? `${attention.length} trial${attention.length > 1 ? 's need' : ' needs'} your attention.`
-          : upcoming.length
-            ? "Nothing urgent. We'll nudge you before anything charges."
-            : 'Add your first trial — it takes five seconds.'
+        attention.length || renewing.length
+          ? `${[attention.length && `${attention.length} trial${attention.length > 1 ? 's need' : ' needs'} your attention`, renewing.length && `${renewing.length} subscription${renewing.length > 1 ? 's renew' : ' renews'} this week`].filter(Boolean).join(' · ')}.`
+          : upcoming.length || subscriptions().length
+            ? "Nothing urgent. We'll warn you before anything charges."
+            : 'Track your trials and subscriptions — we make sure you never pay for something you forgot.'
       }</p></div>
-      <div class="actions"><button data-act="mail-connect" data-provider="gmail" ${state.mail.busy ? 'disabled' : ''}>📧 ${state.mail.busy ? 'Scanning…' : 'Scan Gmail'}</button><button class="primary" data-act="add-open">+ Add trial</button></div>
+      <div class="actions"><button data-act="mail-connect" data-provider="gmail" ${state.mail.busy ? 'disabled' : ''}>📧 ${state.mail.busy ? 'Scanning…' : 'Scan Gmail'}</button><button data-act="add-open" data-kind="subscription">+ Subscription</button><button class="primary" data-act="add-open">+ Add trial</button></div>
     </div>
     ${mailHtml()}
-    ${!empty && !state.settings.mailConnected?.gmail && !state.mail.candidates.length ? `<div class="banner scan-cta"><div><b>Find trials you forgot about.</b> Scan your Gmail for trial confirmation emails — read-only, read on this device, never uploaded.</div><button class="primary" data-act="mail-connect" data-provider="gmail" ${state.mail.busy ? 'disabled' : ''}>${state.mail.busy ? 'Scanning…' : 'Scan my Gmail'}</button></div>` : ''}
-    ${state.settings.mailConnected?.gmail && !state.mail.candidates.length ? scanStatusHtml() : ''}
-    ${empty ? emptyStateHtml() : summaryHtml()}
+    ${subFound.length ? suggestionsHtml(subFound, 'Subscriptions & cancellations found in your email') : ''}
+    ${!empty && !state.settings.mailConnected?.gmail && !state.mail.candidates.length ? `<div class="banner scan-cta"><div><b>Find what's quietly charging you.</b> Scan Gmail for trials, subscriptions, cancellations and offers — read-only, read on this device, never uploaded.</div><button class="primary" data-act="mail-connect" data-provider="gmail" ${state.mail.busy ? 'disabled' : ''}>${state.mail.busy ? 'Scanning…' : 'Scan my Gmail'}</button></div>` : ''}
+    ${state.settings.mailConnected?.gmail && !state.mail.candidates.some((c) => candidateType(c) !== 'offer') ? scanStatusHtml() : ''}
+    ${empty ? emptyStateHtml() : protectedHeroHtml()}
     ${attention.length ? `<section class="section"><div class="section-head"><h2>Needs attention</h2><span class="n">${attention.length}</span></div><div class="cards">${attention.map(cardHtml).join('')}</div></section>` : ''}
-    ${upcoming.length ? `<section class="section"><div class="section-head"><h2>Coming up</h2><span class="n">${upcoming.length}</span><a class="see-all" href="#/trials">See all trials →</a></div><div class="cards">${upcoming.slice(0, 5).map(cardHtml).join('')}</div></section>` : ''}
-    ${!empty && !attention.length && !upcoming.length ? '<div class="empty">All clear — no open trials. <a href="#/savings">See what you saved →</a></div>' : ''}`;
+    ${renewing.length ? `<section class="section"><div class="section-head"><h2>Renewing this week</h2><span class="n">${renewing.length}</span><a class="see-all" href="#/subscriptions">All subscriptions →</a></div><div class="cards">${renewing.map(subCardHtml).join('')}</div></section>` : ''}
+    ${upcoming.length ? `<section class="section"><div class="section-head"><h2>Trials ending</h2><span class="n">${upcoming.length}</span><a class="see-all" href="#/trials">See all trials →</a></div><div class="cards">${upcoming.slice(0, 5).map(cardHtml).join('')}</div></section>` : ''}
+    ${offers.length ? `<a class="banner" href="#/offers" style="display:block;text-decoration:none;color:inherit">🏷️ <b>${offers.length} offer${offers.length > 1 ? 's' : ''} & discount${offers.length > 1 ? 's' : ''}</b> found in your inbox — see them before they expire →</a>` : ''}
+    ${!empty && !attention.length && !upcoming.length && !renewing.length ? '<div class="empty">All clear — nothing charges you this week. <a href="#/cancelled">See the money you protected →</a></div>' : ''}`;
 }
 
 /** "What did the scan check?" — every email the last scan looked at, and why. */
@@ -219,12 +230,13 @@ function scanStatusHtml() {
 function emptyStateHtml() {
   return `<div class="empty-hero">
     <div class="empty-icon">⏳</div>
-    <h2>No trials yet</h2>
-    <p class="lede">Three ways to start:</p>
+    <h2>Nothing tracked yet</h2>
+    <p class="lede">Add the free trials and subscriptions you pay for. Three ways to start:</p>
     <div class="empty-ways">
       <button class="way" data-act="add-open" data-tab="pick"><b>Pick a service</b><span>Netflix, Spotify, ChatGPT… and when it ends</span></button>
       <button class="way" data-act="add-open" data-tab="paste"><b>Paste an email</b><span>We read the date and price for you</span></button>
-      <button class="way" data-act="mail-connect" data-provider="gmail"><b>Scan my Gmail</b><span>Find trials you already started — read-only, on this device</span></button>
+      <button class="way" data-act="mail-connect" data-provider="gmail"><b>Scan my Gmail</b><span>Find trials, subscriptions and offers — read-only, on this device</span></button>
+      <button class="way" data-act="add-open" data-kind="subscription"><b>Add a subscription</b><span>Netflix, iCloud, gym… see what you spend each month</span></button>
     </div></div>`;
 }
 
@@ -232,7 +244,7 @@ function emptyStateHtml() {
 
 export function trialsHtml() {
   const f = state.filter;
-  const all = sortedForDisplay(state.trials);
+  const all = sortedForDisplay(state.trials.filter((t) => !isSubscription(t)));
   const counts = {
     open: all.filter((t) => bucket(t) !== 'resolved').length,
     soon: all.filter((t) => bucket(t) === 'attention').length,
@@ -248,10 +260,10 @@ export function trialsHtml() {
     return !q || t.serviceName.toLowerCase().includes(q) || (t.cardLabel ?? '').toLowerCase().includes(q);
   });
   const tab = (k, label) => `<button role="tab" data-act="filter" data-status="${k}" aria-selected="${f.status === k}">${label} <span class="n">${counts[k]}</span></button>`;
-  return `<div class="page-head"><div><h1>Trials</h1><p class="lede">Everything you're tracking, most urgent first.</p></div>
+  return `<div class="page-head"><div><h1>Trials</h1><p class="lede">Free trials you started, most urgent first. Cancel in time, or keep one and it moves to Subscriptions.</p></div>
       <div class="actions"><button data-act="mail-connect" data-provider="gmail" ${state.mail.busy ? 'disabled' : ''}>📧 ${state.mail.busy ? 'Scanning…' : 'Scan Gmail'}</button><button data-act="ics-all">📅 Export calendar</button><button class="primary" data-act="add-open">+ Add trial</button></div></div>
     ${state.mail.error ? `<p class="error">${esc(state.mail.error)}</p>` : ''}
-    ${state.mail.candidates.length ? `<p class="banner">Found ${state.mail.candidates.length} possible trial${state.mail.candidates.length > 1 ? 's' : ''} in your email — <a href="#/">review on the dashboard</a>.</p>` : state.mail.report ? `<p class="hint">Last email scan: ${state.mail.report.entries.length} trial-related emails checked · <a href="#/scan-report">See what it checked</a></p>` : ''}
+    ${trialCands().length ? `<p class="banner">Found ${trialCands().length} possible trial${trialCands().length > 1 ? 's' : ''} in your email — <a href="#/">review on the dashboard</a>.</p>` : state.mail.report ? `<p class="hint">Last email scan: ${state.mail.report.entries.length} trial-related emails checked · <a href="#/scan-report">See what it checked</a></p>` : ''}
     <div class="toolbar">
       <div class="tabs" role="tablist">${tab('open', 'Open')}${tab('soon', 'Ending soon')}${tab('resolved', 'Resolved')}${tab('all', 'All')}</div>
       <input type="search" id="trial-search" placeholder="Search trials" value="${esc(f.q)}" aria-label="Search trials" />
@@ -261,13 +273,16 @@ export function trialsHtml() {
 
 /* ------------------------------------------------------------------- mail */
 
+const trialCands = () => state.mail.candidates.filter((c) => candidateType(c) === 'trial');
+
 export function mailHtml() {
   const m = state.mail;
-  if (!m.candidates.length) return m.error ? `<p class="error">${esc(m.error)}</p>` : '';
+  const list = trialCands();
+  if (!list.length) return m.error ? `<p class="error">${esc(m.error)}</p>` : '';
   return `<div class="panel found" id="mail-panel">
-    <div class="section-head"><h2>Found in your email</h2><span class="n">${m.candidates.length}</span></div>
+    <div class="section-head"><h2>Trials found in your email</h2><span class="n">${list.length}</span></div>
     <p class="hint">Check the date, then track. We'll nudge you before each one charges.</p>
-    <div class="cards">${m.candidates
+    <div class="cards">${list
       .map((c) => {
         const mid = esc(c.messageId);
         return `<div class="card flat">
@@ -291,6 +306,8 @@ function chips(key, value) {
 
 function manualForm() {
   const editing = state.trials.find((t) => t.id === state.editingId) ?? null;
+  const sub = editing ? isSubscription(editing) : state.addKind === 'subscription';
+  const cycle = editing?.cycle ?? 'monthly';
   const seedRegion = state.seed?.region ?? (state.seed?.currency === 'USD' ? 'US' : state.seed?.currency === 'INR' ? 'IN' : null);
   const region = editing?.region ?? seedRegion ?? state.settings.region;
   const v = editing
@@ -310,24 +327,26 @@ function manualForm() {
       <label class="span2">Service
         <input id="f-name" list="services" placeholder="e.g. Netflix" value="${esc(v.name)}" required autocomplete="off" />
         <datalist id="services">${services().map((e) => `<option value="${esc(e.name)}"></option>`).join('')}</datalist></label>
-      <label>Trial ends / renews on<input id="f-date" type="date" value="${esc(v.date)}" required /></label>
-      <label>At<input id="f-time" type="time" value="${esc(v.time)}" required /></label>
-      <label>Then charges (optional)<input id="f-amount" type="number" min="0" step="0.01" placeholder="499" value="${esc(v.amount)}" /></label>
+      <input type="hidden" id="f-kind" value="${sub ? 'subscription' : 'trial'}" />
+      <label>${sub ? 'Next charge on' : 'Trial ends / renews on'}<input id="f-date" type="date" value="${esc(v.date)}" required /></label>
+      ${sub ? `<label>Billed every<select id="f-cycle">${CYCLES.map((c) => `<option value="${c}" ${c === cycle ? 'selected' : ''}>${cycleLabel(c)}</option>`).join('')}</select></label><input type="hidden" id="f-time" value="${esc(v.time)}" />` : `<label>At<input id="f-time" type="time" value="${esc(v.time)}" required /></label>`}
+      <label>${sub ? 'Price' : 'Then charges (optional)'}<input id="f-amount" type="number" min="0" step="0.01" placeholder="499" value="${esc(v.amount)}" /></label>
       <label>Currency<select id="f-region"><option value="IN" ${region === 'IN' ? 'selected' : ''}>₹ INR</option><option value="US" ${region === 'US' ? 'selected' : ''}>$ USD</option></select></label>
       <details class="span2 more"><summary>More options</summary><div class="form-grid">
         <label>Billing timezone<select id="f-tz">${zones.map((z) => `<option ${z === v.tz ? 'selected' : ''}>${esc(z)}</option>`).join('')}</select></label>
-        <label>Trial length<select id="f-len">${lengths.map((n) => `<option value="${n}" ${n === Number(v.len) ? 'selected' : ''}>${n} days</option>`).join('')}</select></label>
+        <label ${sub ? 'hidden' : ''}>Trial length<select id="f-len">${lengths.map((n) => `<option value="${n}" ${n === Number(v.len) ? 'selected' : ''}>${n} days</option>`).join('')}</select></label>
         <label class="span2">Paid with<input id="f-card" placeholder="e.g. HDFC card / UPI AutoPay" value="${esc(v.card)}" /></label>
       </div></details>
       <p class="error span2" id="f-error" hidden></p>
-      <div class="span2 modal-actions"><button type="button" class="ghost" data-act="add-close">Cancel</button><button type="submit" class="primary">${editing ? 'Save changes' : 'Track this trial'}</button></div>
+      <div class="span2 modal-actions"><button type="button" class="ghost" data-act="add-close">Cancel</button><button type="submit" class="primary">${editing ? 'Save changes' : sub ? 'Track this subscription' : 'Track this trial'}</button></div>
     </form>`;
 }
 
 export function addModalHtml() {
   if (!state.addOpen && !state.editingId) return '';
   const editing = state.trials.find((t) => t.id === state.editingId) ?? null;
-  const tab = editing || state.seed ? 'manual' : state.addTab;
+  const sub = editing ? isSubscription(editing) : state.addKind === 'subscription';
+  const tab = editing || state.seed || sub ? 'manual' : state.addTab;
   let body;
   if (tab === 'pick') {
     const q = state.quick;
@@ -347,8 +366,8 @@ export function addModalHtml() {
   } else body = manualForm();
   const t = (k, l) => `<button type="button" role="tab" data-act="add-tab" data-tab="${k}" aria-selected="${tab === k}">${l}</button>`;
   return `<div class="modal-backdrop" data-act="add-close-backdrop"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-    <div class="modal-head"><h2 id="modal-title">${editing ? `Edit ${esc(editing.serviceName)}` : 'Add a trial'}</h2><button class="ghost icon" data-act="add-close" aria-label="Close">✕</button></div>
-    ${editing || state.seed ? '' : `<div class="tabs" role="tablist">${t('pick', 'Pick a service')}${t('paste', 'Paste email')}${t('manual', 'Enter manually')}</div>`}
+    <div class="modal-head"><h2 id="modal-title">${editing ? `Edit ${esc(editing.serviceName)}` : sub ? 'Add a subscription' : 'Add a trial'}</h2><button class="ghost icon" data-act="add-close" aria-label="Close">✕</button></div>
+    ${editing || state.seed || sub ? '' : `<div class="tabs" role="tablist">${t('pick', 'Pick a service')}${t('paste', 'Paste email')}${t('manual', 'Enter manually')}</div>`}
     ${body}</div></div>`;
 }
 
@@ -369,6 +388,8 @@ function readForm() {
     currency: region === 'IN' ? 'INR' : 'USD',
     trialLengthDays: Number(val('f-len')),
     cardLabel: val('f-card').trim() || undefined,
+    kind: val('f-kind') === 'subscription' ? 'subscription' : 'trial',
+    ...(val('f-kind') === 'subscription' ? { cycle: val('f-cycle') } : {}),
   };
 }
 
@@ -376,6 +397,7 @@ function closeAdd() {
   state.addOpen = false;
   state.editingId = null;
   state.seed = null;
+  state.addKind = 'trial';
   state.quick = { serviceId: null, when: 7 };
 }
 
@@ -397,6 +419,7 @@ export function homeActions(go, persist, toast) {
     'add-open': (el) => {
       state.addOpen = true;
       state.editingId = null;
+      state.addKind = el.dataset.kind === 'subscription' ? 'subscription' : 'trial';
       if (el.dataset.tab) state.addTab = /** @type {any} */ (el.dataset.tab);
       go(null);
     },
@@ -497,7 +520,7 @@ export function homeActions(go, persist, toast) {
       closeAdd();
       await persist();
       go(null);
-      toast(editing ? 'Saved.' : `Tracking ${fields.serviceName}.`);
+      toast(editing ? 'Saved.' : fields.kind === 'subscription' ? `Tracking ${fields.serviceName}. We'll remind you before each renewal.` : `Tracking ${fields.serviceName}.`);
     },
     't-edit': (el) => {
       state.editingId = el.dataset.id;
@@ -511,9 +534,9 @@ export function homeActions(go, persist, toast) {
       go(null);
     },
     't-confirm': (el) => update(el.dataset.id, 'confirmed_cancelled', 'Marked as cancelled. Nice save!'),
-    't-keep': (el) => update(el.dataset.id, 'kept', "Got it — you're keeping it. No more nudges."),
+    't-keep': (el) => update(el.dataset.id, 'kept', "Moved to Subscriptions — we'll remind you before each renewal."),
     't-charged': (el) => update(el.dataset.id, 'charged', 'Marked as charged. Cancel now to stop the next cycle.'),
-    't-undo': (el) => update(el.dataset.id, 'active', 'Moved back to open trials.'),
+    't-undo': (el) => update(el.dataset.id, 'active', 'Moved back.'),
     't-delete': async (el) => {
       const t = state.trials.find((x) => x.id === el.dataset.id);
       if (!t || !confirm(`Remove ${t.serviceName}? This can't be undone.`)) return;

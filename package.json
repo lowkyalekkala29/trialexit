@@ -1,9 +1,9 @@
 {
   "name": "trialexit",
-  "version": "0.7.3",
+  "version": "0.8.0",
   "private": true,
   "type": "module",
-  "description": "Never get charged for a free trial you forgot to cancel.",
+  "description": "Stop losing money to forgotten trials and subscriptions.",
   "scripts": {
     "sync": "node scripts/sync.mjs",
     "icons": "node scripts/icons-render.cjs",

@@ -19,6 +19,7 @@ import {
 } from './core/alerts.js';
 
 import { scanMailbox, disconnectMailbox, PROVIDERS, connectGmail, scanGmailAccount, disconnectGmailAccount } from './mail-scan.js';
+import { candidateKey } from './mail-candidates.js';
 import { decideActivation, pageSignals } from './core/activation.js';
 import { gmailQuery } from './core/mail.js';
 import { syncTrials, pullProfile } from './cloud.js';
@@ -111,13 +112,14 @@ async function refreshBadge(trials) {
   const list = trials ?? (await getTrials());
   const now = new Date();
   const critical = list.filter((t) => {
+    if (t.kind === 'subscription') return false;
     const st = derivedStatus(t, now);
     if (st === 'charged') return msUntil(t.renewsAt, now) > -3 * 24 * HOUR; // ask for 3 days
     return (st === 'active' || st === 'awaiting_confirmation') && msUntil(t.renewsAt, now) <= 48 * HOUR;
   }).length;
   await chrome.action.setBadgeBackgroundColor({ color: '#D93A2B' });
   await chrome.action.setBadgeText({ text: critical > 0 ? String(critical) : '' });
-  const next = sortedForDisplay(list, now).find((t) => derivedStatus(t, now) === 'active');
+  const next = sortedForDisplay(list.filter((t) => t.kind !== 'subscription'), now).find((t) => derivedStatus(t, now) === 'active');
   await chrome.action.setTitle({
     title: next
       ? `TrialExit — ${next.serviceName} renews in ${Math.max(0, Math.ceil(msUntil(next.renewsAt, now) / HOUR))}h`
@@ -256,8 +258,8 @@ async function runMailScan({ provider = null, account = null, interactive = fals
         acc.provider === 'gmail' ? await scanGmailAccount(acc, { ...common, ownName }) : await scanMailbox('outlook', common);
       scannedTotal += scanned ?? 0;
       report.push(...(rep ?? []));
-      const known = new Set([...existing, ...fresh].map((c) => (c.serviceId ?? c.serviceName).toLowerCase()));
-      fresh.push(...candidates.filter((c) => !known.has((c.serviceId ?? c.serviceName).toLowerCase())));
+      const known = new Set([...existing, ...fresh].map(candidateKey));
+      fresh.push(...candidates.filter((c) => !known.has(candidateKey(c))));
       delete errors[acc.email];
       acc.lastScan = new Date().toISOString();
     } catch (err) {

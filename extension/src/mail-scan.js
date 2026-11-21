@@ -6,7 +6,8 @@
  * the device, and never sent anywhere else. Only the resulting suggestions
  * (service, date, price, subject line) are stored.
  */
-import { gmailQuery, OUTLOOK_SEARCH, messageToText, outlookMessageToText } from './core/mail.js';
+import { OUTLOOK_SEARCH, outlookMessageToText } from './core/mail.js';
+import { gmailMoneyEmails } from './gmail-fetch.js';
 import { collectCandidates } from './mail-candidates.js';
 import { OUTLOOK_CLIENT_ID, GOOGLE_CLIENT_ID } from './config.js';
 
@@ -159,12 +160,7 @@ async function gmailApi(account, token, path) {
 /** @returns {AsyncGenerator<{id:string,subject:string,from:string,date:string,text:string}>} */
 async function* gmailMessages(account, interactive, seen, directory = []) {
   const token = await tokenFor(account, interactive);
-  const domains = [...new Set(directory.flatMap((e) => e.domains ?? []))];
-  const list = await gmailApi(account, token, `/messages?maxResults=${MAX_MESSAGES}&q=${encodeURIComponent(gmailQuery(domains))}`);
-  for (const { id } of list.messages ?? []) {
-    if (seen.has(`gmail:${id}`)) continue;
-    yield messageToText(await gmailApi(account, token, `/messages/${id}?format=full`));
-  }
+  yield* gmailMoneyEmails((path) => gmailApi(account, token, path), { seen, directory });
 }
 
 /** Scan one Gmail account; suggestions are tagged with the inbox they came from. */

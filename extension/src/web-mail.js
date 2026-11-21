@@ -10,13 +10,12 @@
  *    from a server.
  */
 import { GOOGLE_CLIENT_ID } from './config.js';
-import { gmailQuery, messageToText } from './core/mail.js';
-import { collectCandidates } from './mail-candidates.js';
+import { gmailMoneyEmails } from './gmail-fetch.js';
+import { collectCandidates, candidateKey } from './mail-candidates.js';
 
 const SCOPES = 'openid email https://www.googleapis.com/auth/gmail.messages.readonly';
 const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.messages.readonly';
 const TOKENS_KEY = 'trialexit:gmail-tokens';
-const MAX_MESSAGES = 100;
 
 export function loadGis() {
   if (/** @type {any} */ (window).google?.accounts?.oauth2) return Promise.resolve();
@@ -110,16 +109,8 @@ async function gmail(email, token, path) {
   return res.json();
 }
 
-const serviceDomains = (directory) => [...new Set((directory ?? []).flatMap((e) => e.domains ?? []))];
-
-async function* messages(email, token, seen, directory) {
-  const q = gmailQuery(serviceDomains(directory));
-  const list = await gmail(email, token, `/messages?maxResults=${MAX_MESSAGES}&q=${encodeURIComponent(q)}`);
-  for (const { id } of list.messages ?? []) {
-    if (seen.has(`gmail:${id}`)) continue;
-    yield messageToText(await gmail(email, token, `/messages/${id}?format=full`));
-  }
-}
+const messages = (email, token, seen, directory) =>
+  gmailMoneyEmails((path) => gmail(email, token, path), { seen, directory });
 
 /**
  * Scan Gmail inboxes and merge new suggestions into storage.
@@ -181,8 +172,8 @@ export async function scanGmailWeb({ interactive, addAccount = false, account = 
         });
         scannedTotal += scanned;
         report.push(...rep);
-        const known = new Set([...existing, ...fresh].map((c) => (c.serviceId ?? c.serviceName).toLowerCase()));
-        fresh.push(...candidates.filter((c) => !known.has((c.serviceId ?? c.serviceName).toLowerCase())).map((c) => ({ ...c, account: acc.email })));
+        const known = new Set([...existing, ...fresh].map(candidateKey));
+        fresh.push(...candidates.filter((c) => !known.has(candidateKey(c))).map((c) => ({ ...c, account: acc.email })));
         delete errors[acc.email];
         acc.lastScan = new Date().toISOString();
       } catch (err) {

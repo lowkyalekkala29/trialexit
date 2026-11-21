@@ -7,6 +7,7 @@
 
 import { alertSchedule, msUntil, HOUR, CHECKIN_DELAY, toDate } from './dates.js';
 import { derivedStatus } from './store.js';
+import { isSubscription, subscriptionRungs } from './money.js';
 
 /**
  * @typedef {Object} PendingAlert
@@ -16,7 +17,7 @@ import { derivedStatus } from './store.js';
  * @property {string} label
  */
 
-/** @typedef {'primary'|'reminder'|'final'|'urgent'|'lastcall'|'immediate'|'checkin'} AlertKind */
+/** @typedef {'primary'|'reminder'|'final'|'urgent'|'lastcall'|'immediate'|'checkin'|'sub3d'|'sub1d'} AlertKind */
 
 /** A trial added inside the alert window still deserves a nudge. */
 const IMMEDIATE_DELAY_MS = 60_000;
@@ -33,6 +34,11 @@ export function pendingAlerts(trials, now = new Date(), prefs = {}) {
   const out = [];
   const skip = new Set(prefs.skip ?? []);
   for (const t of trials) {
+    if (isSubscription(t)) {
+      if (t.status === 'confirmed_cancelled' || skip.has('subscriptions')) continue;
+      for (const r of subscriptionRungs(t, now)) if (r.at > now.getTime()) out.push({ trialId: t.id, at: new Date(r.at).toISOString(), kind: r.kind, label: r.label });
+      continue;
+    }
     const status = derivedStatus(t, now);
     const renewal = toDate(t.renewsAt).getTime();
 
@@ -100,6 +106,8 @@ export function notificationTitle(trial, kind) {
     case 'lastcall': return `${n} charges within the hour`;
     case 'immediate': return `${n} renews very soon`;
     case 'checkin': return `Did ${n} renew?`;
+    case 'sub3d': return `${n} renews in 3 days`;
+    case 'sub1d': return `${n} renews tomorrow`;
     default: return `Cancel your ${n} trial`;
   }
 }
@@ -118,6 +126,7 @@ export function notificationBody(trial, kind) {
   if (kind === 'checkin') {
     return `Its renewal time has passed. Open TrialExit and mark it: cancelled, keeping it, or charged — so nothing slips through.`;
   }
+  if (kind === 'sub3d' || kind === 'sub1d') return `${amount} renewal coming up. Still using it? If not, cancel now and keep the money.`;
   return `${amount} will be charged unless you cancel. Click to open the cancel page.`;
 }
 

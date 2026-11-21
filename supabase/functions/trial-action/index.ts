@@ -8,7 +8,7 @@ let appUrl = '';
 const STATUS: Record<string, string> = { cancelled: 'confirmed_cancelled', kept: 'kept', charged: 'charged' };
 const COPY: Record<string, string> = {
   cancelled: 'Marked as cancelled. Nice save — no more reminders for this one.',
-  kept: "Got it — you're keeping it. We'll stop reminding you.",
+  kept: "Got it — it's now in your Subscriptions. We'll remind you before each renewal.",
   charged: 'Marked as charged. Cancel now to stop the next cycle, then ask support for a refund.',
 };
 
@@ -23,7 +23,12 @@ Deno.serve(async (req) => {
   const now = new Date().toISOString();
   const { error } = await db
     .from('trials')
-    .update({ status: STATUS[p.action], updated_at: now, ...(p.action === 'cancelled' ? { cancelled_at: now } : {}) })
+    .update(
+      p.action === 'kept'
+        ? // Keeping a trial makes it a subscription we keep watching each month.
+          { kind: 'subscription', cycle: 'monthly', status: 'active', updated_at: now }
+        : { status: STATUS[p.action], updated_at: now, ...(p.action === 'cancelled' ? { cancelled_at: now } : {}) },
+    )
     .eq('id', p.trialId)
     .is('deleted_at', null);
   if (error) return page('Something went wrong.', 'Please update the trial in TrialExit.', 500);

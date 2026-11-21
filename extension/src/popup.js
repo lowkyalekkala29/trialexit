@@ -1,4 +1,5 @@
 import { derivedStatus, sortedForDisplay } from './core/store.js';
+import { nextCharge } from './core/money.js';
 import { urgency, msUntil, formatCountdown, formatMoney, HOUR } from './core/dates.js';
 import { logoHtml } from './brand.js';
 
@@ -80,8 +81,11 @@ async function renderDetection() {
 }
 
 const got = await chrome.storage.local.get(['trials']);
-const trials = Array.isArray(got.trials) ? got.trials : [];
 const now = new Date();
+// Subscriptions show their next renewal like a trial's end date.
+const trials = (Array.isArray(got.trials) ? got.trials : []).map((t) =>
+  t.kind === 'subscription' && t.status !== 'confirmed_cancelled' ? { ...t, renewsAt: nextCharge(t, now).toISOString() } : t,
+);
 const open = sortedForDisplay(trials, now).filter((t) => {
   const st = derivedStatus(t, now);
   return st === 'active' || st === 'awaiting_confirmation' || (st === 'charged' && t.status !== 'charged');
@@ -89,7 +93,7 @@ const open = sortedForDisplay(trials, now).filter((t) => {
 
 if (!open.length) {
   mini.innerHTML =
-    '<div class="empty" style="padding:16px 12px;font-size:13px">No trials tracked yet.<br />Track one on this page, or let us find them in your email.</div>';
+    '<div class="empty" style="padding:16px 12px;font-size:13px">Nothing tracked yet.<br />Track a trial or subscription, or let us find them in your email.</div>';
 } else {
   const urgent = open.filter((t) => msUntil(t.renewsAt, now) <= 48 * HOUR).length;
   mini.innerHTML = `<div class="section-head" style="margin-bottom:8px"><h2>${urgent ? 'Needs attention' : 'Next up'}</h2><span class="n">${open.length} open</span></div>

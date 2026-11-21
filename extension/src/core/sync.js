@@ -55,6 +55,8 @@ export function toRow(t, userId) {
     cancel_url_used: t.cancelUrlUsed ?? null,
     card_label: t.cardLabel ?? null,
     source: t.source ?? null,
+    kind: t.kind ?? 'trial',
+    cycle: t.cycle ?? null,
     updated_at: t.updatedAt ?? t.createdAt,
     deleted_at: null,
   };
@@ -77,6 +79,8 @@ export function fromRow(r) {
     cancelUrlUsed: r.cancel_url_used,
     cardLabel: r.card_label ?? undefined,
     source: r.source ?? undefined,
+    kind: r.kind ?? 'trial',
+    cycle: r.cycle ?? undefined,
     updatedAt: r.updated_at,
   };
 }

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "TrialExit",
-  "version": "0.7.3",
-  "description": "Catch every free trial — from checkout pages and your Gmail — and get nudged before it charges, with a one-click cancel link.",
+  "version": "0.8.0",
+  "description": "Stop losing money to forgotten trials and subscriptions: warned before every charge, with a one-click cancel link. Offers too.",
   "minimum_chrome_version": "116",
   "icons": {
     "16": "icons/icon-16.png",
