@@ -1,18 +1,20 @@
 {
   "name": "trialexit",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "Never get charged for a free trial you forgot to cancel.",
   "scripts": {
     "sync": "node scripts/sync.mjs",
     "icons": "node scripts/icons.mjs",
-    "verify": "node scripts/verify-directory.mjs",    "verify:write": "node scripts/verify-directory.mjs --write",
+    "verify": "node scripts/verify-directory.mjs",
+    "verify:write": "node scripts/verify-directory.mjs --write",
     "package": "node scripts/sync.mjs && node scripts/package.mjs",
     "demo": "node scripts/demo.mjs",
+    "site": "node scripts/build-site.mjs",
     "test": "node --test \"core/test/*.test.js\"",
     "check": "node scripts/check-imports.mjs",
-    "check": "npx --yes typescript@5 tsc --noEmit --allowJs --checkJs --target es2022 --module esnext --moduleResolution bundler core/src/*.js"
+    "typecheck": "npx --yes typescript@5 tsc --noEmit --allowJs --checkJs --target es2022 --module esnext --moduleResolution bundler core/src/*.js"
   },
   "engines": {
     "node": ">=20"

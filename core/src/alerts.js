@@ -5,19 +5,22 @@
  * Pure: no chrome.* here, so the schedule is testable without a browser.
  */
 
-import { alertSchedule, msUntil, HOUR } from './dates.js';
+import { alertSchedule, msUntil, HOUR, CHECKIN_DELAY, toDate } from './dates.js';
 import { derivedStatus } from './store.js';
 
 /**
  * @typedef {Object} PendingAlert
  * @property {string} trialId
  * @property {string} at       ISO instant
- * @property {'primary'|'final'|'immediate'} kind
+ * @property {AlertKind} kind
  * @property {string} label
  */
 
+/** @typedef {'primary'|'reminder'|'final'|'urgent'|'lastcall'|'immediate'|'checkin'} AlertKind */
+
 /** A trial added inside the alert window still deserves a nudge. */
 const IMMEDIATE_DELAY_MS = 60_000;
+const FINAL_WINDOW = 24 * HOUR;
 
 /**
  * @param {import('./types.js').Trial[]} trials
@@ -28,28 +31,34 @@ export function pendingAlerts(trials, now = new Date()) {
   /** @type {PendingAlert[]} */
   const out = [];
   for (const t of trials) {
-    if (derivedStatus(t, now) !== 'active') continue;
+    const status = derivedStatus(t, now);
+    const renewal = toDate(t.renewsAt).getTime();
+
+    // Nobody told us how it ended: ask once, shortly after the renewal moment.
+    if ((status === 'active' || status === 'charged' || status === 'awaiting_confirmation') && t.status !== 'kept') {
+      const checkinAt = renewal + CHECKIN_DELAY;
+      if (checkinAt > now.getTime()) {
+        out.push({ trialId: t.id, at: new Date(checkinAt).toISOString(), kind: 'checkin', label: 'Did it renew?' });
+      }
+    }
+
+    if (status !== 'active' && status !== 'awaiting_confirmation') continue;
     if (msUntil(t.renewsAt, now) <= 0) continue;
 
     const scheduled = alertSchedule(t.renewsAt, t.trialLengthDays, now);
-    if (scheduled.length === 0) {
-      // Renewal is under 24h away, so both standard alerts are already in the
-      // past. Nudge shortly instead of staying silent.
+    // Added late: everything before the next ladder step is already past.
+    // Nudge shortly instead of staying silent until the next rung.
+    const nextAt = scheduled[0] ? new Date(scheduled[0].at).getTime() : renewal;
+    if (msUntil(t.renewsAt, now) <= FINAL_WINDOW && nextAt - now.getTime() > IMMEDIATE_DELAY_MS * 5) {
       out.push({
         trialId: t.id,
         at: new Date(now.getTime() + IMMEDIATE_DELAY_MS).toISOString(),
         kind: 'immediate',
         label: `${t.serviceName} renews soon`,
       });
-      continue;
     }
     for (const a of scheduled) {
-      out.push({
-        trialId: t.id,
-        at: a.at,
-        kind: /** @type {'primary'|'final'} */ (a.kind),
-        label: a.label,
-      });
+      out.push({ trialId: t.id, at: a.at, kind: /** @type {AlertKind} */ (a.kind), label: a.label });
     }
   }
   return out.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
@@ -77,25 +86,36 @@ export function parseAlarmName(name) {
 
 /**
  * @param {import('./types.js').Trial} trial
- * @param {'primary'|'final'|'immediate'} kind
+ * @param {AlertKind} kind
  * @returns {string}
  */
 export function notificationTitle(trial, kind) {
-  if (kind === 'final') return `${trial.serviceName} renews in under 24 hours`;
-  if (kind === 'immediate') return `${trial.serviceName} renews very soon`;
-  return `Cancel your ${trial.serviceName} trial`;
+  const n = trial.serviceName;
+  switch (kind) {
+    case 'reminder': return `2 days left on your ${n} trial`;
+    case 'final': return `${n} renews in under 24 hours`;
+    case 'urgent': return `${n} charges in about 6 hours`;
+    case 'lastcall': return `${n} charges within the hour`;
+    case 'immediate': return `${n} renews very soon`;
+    case 'checkin': return `Did ${n} renew?`;
+    default: return `Cancel your ${n} trial`;
+  }
 }
 
 /**
  * @param {import('./types.js').Trial} trial
+ * @param {AlertKind} [kind]
  * @returns {string}
  */
-export function notificationBody(trial) {
+export function notificationBody(trial, kind) {
   const amount = new Intl.NumberFormat(trial.currency === 'INR' ? 'en-IN' : 'en-US', {
     style: 'currency',
     currency: trial.currency,
     maximumFractionDigits: 2,
   }).format(trial.amount / 100);
+  if (kind === 'checkin') {
+    return `Its renewal time has passed. Open TrialExit and mark it: cancelled, keeping it, or charged — so nothing slips through.`;
+  }
   return `${amount} will be charged unless you cancel. Click to open the cancel page.`;
 }
 

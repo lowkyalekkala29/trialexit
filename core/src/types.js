@@ -27,7 +27,7 @@
 
 /**
  * Lifecycle of a single trial. Cancellation is NEVER inferred.
- * @typedef {'active' | 'awaiting_confirmation' | 'confirmed_cancelled' | 'charged' | 'dismissed'} TrialStatus
+ * @typedef {'active' | 'awaiting_confirmation' | 'confirmed_cancelled' | 'charged' | 'kept' | 'dismissed'} TrialStatus
  */
 
 /**
@@ -45,13 +45,14 @@
  * @property {string} createdAt        ISO instant
  * @property {string|null} cancelledAt ISO instant when the user confirmed cancellation
  * @property {string|null} cancelUrlUsed
+ * @property {string} [source]         how it was captured: manual | page | email
  * @property {string} [cardLabel]      e.g. "HDFC card" / "UPI AutoPay" — user's own label
  */
 
 /**
  * @typedef {Object} Alert
  * @property {string} at      ISO instant to fire
- * @property {'primary'|'final'} kind
+ * @property {'primary'|'reminder'|'final'|'urgent'|'lastcall'} kind
  * @property {string} label   Human description for the calendar/notification
  */
 

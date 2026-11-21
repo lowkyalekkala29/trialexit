@@ -51,17 +51,16 @@ test('alert schedule drops past alerts and keeps ordering', () => {
   const renewal = '2026-12-01T00:00:00+05:30';
   const now = new Date('2026-11-29T00:00:00Z'); // primary (48h) already passed
   const alerts = alertSchedule(renewal, 7, now);
-  assert.equal(alerts.length, 1);
-  assert.equal(alerts[0].kind, 'final');
+  assert.deepEqual(alerts.map((a) => a.kind), ['final', 'urgent', 'lastcall']);
 });
 
-test('alert schedule for a 30 day trial fires 5 days out plus a 24h ping', () => {
+test('alert schedule for a 30 day trial fires 5 days out, then the 48h ladder', () => {
   const renewal = '2026-12-31T00:00:00+05:30';
   const now = new Date('2026-12-01T00:00:00Z');
   const alerts = alertSchedule(renewal, 30, now);
   assert.deepEqual(
     alerts.map((a) => a.kind),
-    ['primary', 'final'],
+    ['primary', 'reminder', 'final', 'urgent', 'lastcall'],
   );
 });
 

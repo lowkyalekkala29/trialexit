@@ -19,6 +19,7 @@ import {
   validateTrial,
 } from './core/store.js';
 import { buildIcs, downloadIcs } from './core/ics.js';
+import { parseTrialEmail } from './core/guess.js';
 import { validateLicence } from './licence.js';
 
 const ZONES = [
@@ -34,8 +35,6 @@ const ZONES = [
   'Asia/Tokyo',
   'Australia/Sydney',
 ];
-
-const DEV_UNLOCK = 'TRIALEXIT-DEV';
 
 const state = {
   /** @type {import('./core/types.js').Trial[]} */
@@ -67,7 +66,10 @@ const deviceZone = ZONES.includes(Intl.DateTimeFormat().resolvedOptions().timeZo
  * `src/data/` when loaded from src/dashboard.html, `data/` from the extension
  * root, and `demo/data/` in the preview harness. Try each rather than guess.
  */
-const DIRECTORY_CANDIDATES = ['data/directory.json', '../data/directory.json'];
+const DIRECTORY_CANDIDATES =
+  location.protocol === 'chrome-extension:'
+    ? ['../data/directory.json', 'data/directory.json']
+    : ['data/directory.json', '../data/directory.json'];
 
 async function loadBundledDirectory() {
   for (const url of DIRECTORY_CANDIDATES) {
@@ -117,13 +119,16 @@ function entryFor(trial) {
 
 function cardHtml(t, now) {
   const status = derivedStatus(t, now);
-  const band = status === 'confirmed_cancelled' ? 'done' : urgency(t.renewsAt, now);
+  const band = status === 'confirmed_cancelled' || status === 'kept' ? 'done' : urgency(t.renewsAt, now);
   const entry = entryFor(t);
   const verified = entry?.verified !== false;
-  const done = status === 'confirmed_cancelled';
+  const kept = status === 'kept';
+  const done = status === 'confirmed_cancelled' || kept;
   const charged = status === 'charged';
 
-  const bandPill = done
+  const bandPill = kept
+    ? '<span class="pill">keeping — paid subscription</span>'
+    : done
     ? '<span class="pill ok">cancelled</span>'
     : charged
       ? '<span class="pill crit">charged</span>'
@@ -157,11 +162,12 @@ function cardHtml(t, now) {
       </div>
       ${refund}
       <div class="actions">
-        ${entry ? `<a class="btn primary" href="${esc(entry.cancelUrl)}" target="_blank" rel="noopener" data-act="open" data-id="${esc(t.id)}">Cancel at ${esc(entry.name)}</a>` : ''}
-        <button class="btn" data-act="ics" data-id="${esc(t.id)}">Add to calendar</button>
+        ${entry && !done ? `<a class="btn primary" href="${esc(entry.cancelUrl)}" target="_blank" rel="noopener" data-act="open" data-id="${esc(t.id)}">Cancel at ${esc(entry.name)}</a>` : ''}
+        ${done ? '' : `<button class="btn" data-act="ics" data-id="${esc(t.id)}">Add to calendar</button>`}
         ${done
           ? `<button class="ghost" data-act="undo" data-id="${esc(t.id)}">Undo</button>`
-          : `<button class="btn" data-act="confirm" data-id="${esc(t.id)}">I cancelled it</button>`}
+          : `<button class="btn" data-act="confirm" data-id="${esc(t.id)}">I cancelled it</button>
+             <button class="btn" data-act="keep" data-id="${esc(t.id)}">I'm keeping it</button>`}
         <button class="ghost" data-act="edit" data-id="${esc(t.id)}">Edit</button>
         <button class="ghost" data-act="delete" data-id="${esc(t.id)}">Remove</button>
       </div>
@@ -254,11 +260,44 @@ function formHtml() {
       <div class="row-span actions">
         <button type="submit" class="primary">${editing ? 'Save changes' : 'Track this trial'}</button>
         ${editing ? '<button type="button" class="ghost" data-act="cancel-edit">Cancel</button>' : ''}
-        <span class="hint">Alert fires 48h before renewal (5 days for trials over two weeks), plus a ping at 24h.</span>
+        <span class="hint">Nudges at 48h, 24h, 6h and 1h before the charge (plus a 5-day heads-up on long trials), then asks whether it renewed.</span>
       </div>
       <p class="error row-span" id="f-error" hidden></p>
       ${state.seed?.note ? `<p class="hint row-span" style="margin:0">${esc(state.seed.note)}</p>` : ''}
     </form>`;
+}
+
+function pasteHtml() {
+  return `
+    <details class="add paste" id="paste-box" ${state.trials.length ? '' : 'open'}>
+      <summary><b>Paste a confirmation email</b> <span class="hint">— trial started on your phone, in an app, or before you installed this? Paste the email or receipt and we'll fill the form.</span></summary>
+      <textarea id="paste-text" rows="5" placeholder="e.g. Your free trial of YouTube Premium has started. Starting December 21, 2026 you'll be charged ₹149.00/month."></textarea>
+      <div class="actions">
+        <button type="button" class="primary" data-act="parse-email">Read it</button>
+        <span class="hint" id="paste-hint">Read on your device. Nothing is uploaded.</span>
+      </div>
+    </details>`;
+}
+
+function summaryHtml(now) {
+  const active = state.trials.filter((t) => ['active', 'awaiting_confirmation'].includes(derivedStatus(t, now)));
+  if (!state.trials.length) return '';
+  const urgent = active.filter((t) => msUntil(t.renewsAt, now) <= 48 * HOUR);
+  const week = active.filter((t) => msUntil(t.renewsAt, now) <= 7 * DAY);
+  const unresolved = state.trials.filter((t) => derivedStatus(t, now) === 'charged');
+  const atStake = { INR: 0, USD: 0 };
+  for (const t of active) atStake[t.currency] += t.amount;
+  const stake = [atStake.INR && formatMoney(atStake.INR, 'INR'), atStake.USD && formatMoney(atStake.USD, 'USD')]
+    .filter(Boolean)
+    .join(' + ');
+  const stat = (n, label, cls = '') => `<div class="stat ${cls}"><b>${n}</b><span>${label}</span></div>`;
+  return `<div class="summary">
+    ${stat(active.length, 'active trials')}
+    ${stat(urgent.length, 'renew within 48h', urgent.length ? 'crit' : '')}
+    ${stat(week.length, 'renew this week', week.length ? 'soon' : '')}
+    ${stat(esc(stake || '—'), 'at stake')}
+    ${unresolved.length ? stat(unresolved.length, 'need an answer: renewed?', 'crit') : ''}
+  </div>`;
 }
 
 function cardsInner(list, now) {
@@ -276,7 +315,9 @@ function render() {
   $('#saved').innerHTML = savedText ? `Saved so far <b>${esc(savedText)}</b>` : 'Nothing charged yet.';
 
   $('#app').innerHTML =
-    formHtml() + `<div id="cards-wrap">${cardsInner(sortedForDisplay(state.trials, now), now)}</div>`;
+    pasteHtml() +
+    formHtml() +
+    `<div id="cards-wrap">${summaryHtml(now)}${cardsInner(sortedForDisplay(state.trials, now), now)}</div>`;
 }
 
 /** Refresh countdowns only — never the form, or typing gets wiped. */
@@ -284,7 +325,7 @@ function renderCards() {
   const wrap = document.getElementById('cards-wrap');
   if (!wrap) return;
   const now = new Date();
-  wrap.innerHTML = cardsInner(sortedForDisplay(state.trials, now), now);
+  wrap.innerHTML = summaryHtml(now) + cardsInner(sortedForDisplay(state.trials, now), now);
 }
 
 function readForm() {
@@ -351,6 +392,7 @@ document.addEventListener('submit', async (e) => {
       createdAt: new Date().toISOString(),
       cancelledAt: null,
       cancelUrlUsed: null,
+      source: state.seed?.source ?? (state.seed ? 'page' : 'manual'),
     },
   ];
   state.seed = null;
@@ -363,6 +405,35 @@ document.addEventListener('click', async (e) => {
   if (!el) return;
   const { id, act } = el.dataset;
   const trial = state.trials.find((t) => t.id === id);
+
+  if (act === 'parse-email') {
+    const text = /** @type {HTMLTextAreaElement} */ ($('#paste-text')).value;
+    const r = parseTrialEmail(text, state.directory);
+    if (!r.found) {
+      $('#paste-hint').textContent = "Couldn't find a service, price or date in that text — fill the form below instead.";
+      return;
+    }
+    const bits = [
+      r.serviceName && `service ${r.serviceName}`,
+      r.renewalMatched ? `renewal "${r.renewalMatched}"` : r.days ? `${r.days.days}-day trial` : null,
+      r.price && `price ${r.price.currency === 'USD' ? '$' : '₹'}${r.price.amount}`,
+    ].filter(Boolean);
+    state.editingId = null;
+    state.seed = {
+      serviceId: r.entry?.serviceId ?? null,
+      region: r.entry?.region ?? null,
+      serviceName: r.serviceName ?? '',
+      amount: r.price?.amount ?? null,
+      currency: r.price?.currency ?? null,
+      trialLengthDays: r.days?.days ?? null,
+      renewsAt: r.renewsOn ? zonedWallTimeToInstant(r.renewsOn, '00:00', deviceZone).toISOString() : null,
+      source: 'email',
+      note: `Read from the pasted email: ${bits.join(', ')}. Renewal time set to midnight to be safe — correct anything that's wrong, then press Track.`,
+    };
+    render();
+    $('#f-name').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
 
   if (act === 'cancel-edit') {
     state.editingId = null;
@@ -391,6 +462,8 @@ document.addEventListener('click', async (e) => {
 
   if (act === 'confirm' && trial) {
     state.trials = transition(state.trials, id, 'confirmed_cancelled');
+  } else if (act === 'keep' && trial) {
+    state.trials = transition(state.trials, id, 'kept');
   } else if (act === 'undo' && trial) {
     state.trials = transition(state.trials, id, 'active');
   } else if (act === 'delete' && trial) {
@@ -425,14 +498,6 @@ $('#unlock-close').addEventListener('click', () =>
 $('#unlock-apply').addEventListener('click', async () => {
   const code = /** @type {HTMLInputElement} */ ($('#unlock-code')).value.trim().toUpperCase();
   const errEl = /** @type {HTMLElement} */ ($('#unlock-error'));
-
-  if (code === DEV_UNLOCK) {
-    state.settings.unlocked = true;
-    await save();
-    /** @type {HTMLDialogElement} */ ($('#paywall')).close();
-    render();
-    return;
-  }
 
   const res = await validateLicence(code);
   if (res.ok) {

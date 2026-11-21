@@ -28,9 +28,21 @@ const trial = (over = {}) => ({
   ...over,
 });
 
-test('a week-long trial schedules two alerts, primary first', () => {
+test('a week-long trial escalates: 48h, 24h, 6h, 1h, then a check-in', () => {
   const alerts = pendingAlerts([trial()], now);
-  assert.deepEqual(alerts.map((a) => a.kind), ['primary', 'final']);
+  assert.deepEqual(alerts.map((a) => a.kind), ['primary', 'final', 'urgent', 'lastcall', 'checkin']);
+});
+
+test('check-in fires after renewal and is skipped once the user decided', () => {
+  const past = trial({ renewsAt: new Date(now.getTime() - 3600_000).toISOString() });
+  assert.deepEqual(pendingAlerts([past], now).map((a) => a.kind), ['checkin']);
+  assert.equal(pendingAlerts([{ ...past, status: 'kept' }], now).length, 0);
+  assert.equal(pendingAlerts([{ ...past, status: 'confirmed_cancelled' }], now).length, 0);
+});
+
+test('check-in title asks what happened', () => {
+  assert.match(notificationTitle(trial(), 'checkin'), /Did Netflix renew/);
+  assert.match(notificationBody(trial(), 'checkin'), /keeping it/);
 });
 
 test('cancelled and charged trials schedule nothing', () => {
@@ -42,7 +54,7 @@ test('cancelled and charged trials schedule nothing', () => {
 test('a trial added inside 24h still gets an immediate nudge', () => {
   const soon = trial({ renewsAt: new Date(now.getTime() + 3 * 3600_000).toISOString() });
   const alerts = pendingAlerts([soon], now);
-  assert.equal(alerts.length, 1);
+  assert.deepEqual(alerts.map((a) => a.kind), ['immediate', 'lastcall', 'checkin']);
   assert.equal(alerts[0].kind, 'immediate');
   assert.ok(new Date(alerts[0].at).getTime() > now.getTime());
 });

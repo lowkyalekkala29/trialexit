@@ -18,7 +18,7 @@ export const FREE_TRIAL_LIMIT = 3;
  * @returns {import('./types.js').Trial['status']}
  */
 export function derivedStatus(t, now = new Date()) {
-  if (t.status === 'active' && msUntil(t.renewsAt, now) <= 0) return 'charged';
+  if ((t.status === 'active' || t.status === 'awaiting_confirmation') && msUntil(t.renewsAt, now) <= 0) return 'charged';
   return t.status;
 }
 
@@ -90,8 +90,8 @@ export function transition(trials, id, next, now = new Date()) {
 export function sortedForDisplay(trials, now = new Date()) {
   const weight = { critical: 0, soon: 1, safe: 2, past_due: 3 };
   return [...trials].sort((a, b) => {
-    const aDone = derivedStatus(a, now) === 'confirmed_cancelled';
-    const bDone = derivedStatus(b, now) === 'confirmed_cancelled';
+    const aDone = ['confirmed_cancelled', 'kept'].includes(derivedStatus(a, now));
+    const bDone = ['confirmed_cancelled', 'kept'].includes(derivedStatus(b, now));
     if (aDone !== bDone) return aDone ? 1 : -1;
     const ua = weight[urgency(a.renewsAt, now)];
     const ub = weight[urgency(b.renewsAt, now)];

@@ -190,3 +190,93 @@ export function derivationNote(guess) {
         : 'Read from this page';
   return `${phase}: we guessed ${bits.join(' and ')}. Correct anything that is wrong.`;
 }
+
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+const MONTH_RE = '(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)';
+const RENEWAL_CUE =
+  /(renew|charg|bill|trial\s+(?:ends?|expires?)|ends?\s+on|expires?|until|starting|first\s+payment|next\s+payment|auto[-\s]?pay|debit)/i;
+
+/** "December 5, 2026", "Dec 5", "5 December 2026", "5th Dec", "2026-12-05", "05/12/2026" */
+const DATE_PATTERNS = [
+  { re: new RegExp(`${MONTH_RE}\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?,?\\s*(\\d{4})?`, 'gi'), order: 'mdy' },
+  { re: new RegExp(`(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?${MONTH_RE}\\.?,?\\s*(\\d{4})?`, 'gi'), order: 'dmy' },
+  { re: /(\d{4})-(\d{2})-(\d{2})/g, order: 'iso' },
+  { re: /(\d{1,2})\/(\d{1,2})\/(\d{4})/g, order: 'slash' },
+];
+
+/**
+ * Finds the renewal/charge date in a confirmation email or receipt.
+ * Only dates near a renewal cue ("renews on", "you'll be charged", "trial ends")
+ * count — receipts are full of order dates that must not be mistaken for it.
+ *
+ * @param {string} text
+ * @param {Date} [now]  resolves dates written without a year
+ * @param {'dmy'|'mdy'} [slashOrder]  how to read 05/12/2026 (India: dmy)
+ * @returns {{ date: string, matched: string } | null}  date as YYYY-MM-DD
+ */
+export function extractRenewalDate(text, now = new Date(), slashOrder = 'dmy') {
+  const src = String(text ?? '');
+  /** @type {{ date: string, matched: string, score: number }[]} */
+  const found = [];
+  for (const { re, order } of DATE_PATTERNS) {
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(src))) {
+      let y, mo, d;
+      if (order === 'mdy') [mo, d, y] = [MONTHS.indexOf(m[1].slice(0, 3).toLowerCase()), +m[2], m[3]];
+      else if (order === 'dmy') [d, mo, y] = [+m[1], MONTHS.indexOf(m[2].slice(0, 3).toLowerCase()), m[3]];
+      else if (order === 'iso') [y, mo, d] = [m[1], +m[2] - 1, +m[3]];
+      else if (slashOrder === 'mdy') [mo, d, y] = [+m[1] - 1, +m[2], m[3]];
+      else [d, mo, y] = [+m[1], +m[2] - 1, m[3]];
+      if (mo < 0 || mo > 11 || d < 1 || d > 31) continue;
+      let year = y ? +y : now.getFullYear();
+      let candidate = new Date(Date.UTC(year, mo, d));
+      // "Dec 5" with no year, written in late December, means next year.
+      if (!y && candidate.getTime() < now.getTime() - 86_400_000) candidate = new Date(Date.UTC(++year, mo, d));
+      const before = src.slice(Math.max(0, m.index - 90), m.index);
+      const cue = RENEWAL_CUE.test(before);
+      if (!cue) continue;
+      const future = candidate.getTime() >= now.getTime() - 86_400_000;
+      // Prefer the cue closest to the date, and future dates over past ones.
+      const lastCue = before.search(new RegExp(`${RENEWAL_CUE.source}(?![\\s\\S]*${RENEWAL_CUE.source})`, 'i'));
+      found.push({
+        date: candidate.toISOString().slice(0, 10),
+        matched: m[0].trim(),
+        score: (future ? 100 : 0) + lastCue,
+      });
+    }
+  }
+  if (!found.length) return null;
+  found.sort((a, b) => b.score - a.score);
+  return { date: found[0].date, matched: found[0].matched };
+}
+
+/**
+ * Reads a pasted confirmation email / receipt / app-store mail into a
+ * suggested trial. Every field is a guess shown to the user before saving.
+ *
+ * @param {string} text
+ * @param {{ name: string, serviceId: string, region: string, domains?: string[] }[]} directory
+ * @param {Date} [now]
+ */
+export function parseTrialEmail(text, directory, now = new Date()) {
+  const src = String(text ?? '');
+  const lower = src.toLowerCase();
+  // Longest name first so "YouTube Premium" beats "YouTube".
+  const byName = [...directory]
+    .sort((a, b) => b.name.length - a.name.length)
+    .find((e) => lower.includes(e.name.toLowerCase()) || (e.domains ?? []).some((d) => lower.includes(d)));
+  const days = extractTrialDays(src);
+  const price = extractPrice(src);
+  const renewal = extractRenewalDate(src, now);
+  const renewsOn = renewal?.date ?? (days ? deriveRenewal(now, days.days).slice(0, 10) : null);
+  return {
+    entry: byName ?? null,
+    serviceName: byName?.name ?? null,
+    days,
+    price,
+    renewsOn,
+    renewalMatched: renewal?.matched ?? null,
+    found: Boolean(byName || days || price || renewal),
+  };
+}

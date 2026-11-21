@@ -40,16 +40,28 @@
   "content_scripts": [
     {
       "matches": [
+        "https://*.adobe.com/*",
+        "https://*.anthropic.com/*",
+        "https://*.audible.com/*",
+        "https://*.audible.in/*",
+        "https://*.canva.com/*",
+        "https://*.chatgpt.com/*",
+        "https://*.claude.ai/*",
+        "https://*.disneyplus.com/*",
+        "https://*.dropbox.com/*",
+        "https://*.hotstar.com/*",
+        "https://*.hulu.com/*",
+        "https://*.jiohotstar.com/*",
+        "https://*.linkedin.com/*",
+        "https://*.music.youtube.com/*",
         "https://*.netflix.com/*",
+        "https://*.one.google.com/*",
+        "https://*.openai.com/*",
+        "https://*.primevideo.com/*",
+        "https://*.sonyliv.com/*",
         "https://*.spotify.com/*",
         "https://*.youtube.com/*",
-        "https://*.chatgpt.com/*",
-        "https://*.adobe.com/*",
-        "https://*.hotstar.com/*",
-        "https://*.primevideo.com/*",
-        "https://*.linkedin.com/*",
-        "https://*.claude.ai/*",
-        "https://*.canva.com/*"
+        "https://*.zee5.com/*"
       ],
       "js": [
         "src/detect.js"

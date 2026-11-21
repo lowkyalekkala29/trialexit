@@ -15,8 +15,18 @@ export const DAY = 24 * HOUR;
 const SHORT_TRIAL_MAX_DAYS = 14;
 const SHORT_TRIAL_LEAD = 48 * HOUR;
 const LONG_TRIAL_LEAD = 5 * DAY;
-/** Always fire a second, closer ping. */
+/** Escalation: nudges get closer together as the charge approaches. */
 const FINAL_LEAD = 24 * HOUR;
+const URGENT_LEAD = 6 * HOUR;
+const LASTCALL_LEAD = 1 * HOUR;
+
+const ALERT_LABELS = {
+  primary: 'Cancel your trial today',
+  reminder: 'Two days left on your trial',
+  final: 'Last chance — billing is within 24 hours',
+  urgent: 'Billing in about 6 hours',
+  lastcall: 'Billing within the hour',
+};
 
 /**
  * @param {number} trialLengthDays
@@ -122,19 +132,21 @@ export function alertSchedule(renewsAt, trialLengthDays, now = new Date()) {
   const candidates = [
     { at: renewal - primaryLeadMs(trialLengthDays), kind: /** @type {const} */ ('primary') },
     { at: renewal - FINAL_LEAD, kind: /** @type {const} */ ('final') },
+    { at: renewal - URGENT_LEAD, kind: /** @type {const} */ ('urgent') },
+    { at: renewal - LASTCALL_LEAD, kind: /** @type {const} */ ('lastcall') },
   ];
+  // Long trials also get the standard 48h nudge after the 5-day heads-up.
+  if (primaryLeadMs(trialLengthDays) > SHORT_TRIAL_LEAD) {
+    candidates.push({ at: renewal - SHORT_TRIAL_LEAD, kind: /** @type {const} */ ('reminder') });
+  }
   return candidates
     .filter((c) => c.at > now.getTime())
     .sort((a, b) => a.at - b.at)
-    .map((c) => ({
-      at: new Date(c.at).toISOString(),
-      kind: c.kind,
-      label:
-        c.kind === 'primary'
-          ? 'Cancel your trial today'
-          : 'Last chance — billing is within 24 hours',
-    }));
+    .map((c) => ({ at: new Date(c.at).toISOString(), kind: c.kind, label: ALERT_LABELS[c.kind] }));
 }
+
+/** After the renewal moment, ask what actually happened. */
+export const CHECKIN_DELAY = 2 * HOUR;
 
 /**
  * @typedef {'past_due'|'critical'|'soon'|'safe'} Urgency

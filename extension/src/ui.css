@@ -143,3 +143,21 @@ dialog::backdrop { background: #000a; }
 body.popup { width: 340px; }
 body.popup .wrap { padding: 14px; }
 body.popup .card { padding: 10px 12px; }
+
+/* summary strip */
+.summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; display: grid; gap: 2px; }
+.stat b { font-size: 20px; font-variant-numeric: tabular-nums; }
+.stat span { color: var(--muted); font-size: 12px; }
+.stat.crit b { color: var(--critical); }
+.stat.soon b { color: var(--soon); }
+
+/* paste-an-email box */
+details.paste { display: grid; gap: 10px; margin-bottom: 18px; }
+details.paste summary { cursor: pointer; list-style: none; }
+details.paste summary::-webkit-details-marker { display: none; }
+details.paste summary::before { content: '＋ '; color: var(--safe); }
+details.paste[open] summary::before { content: '－ '; }
+details.paste textarea { width: 100%; margin-top: 10px; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 10px; font: inherit; font-size: 14px; resize: vertical; }
+details.paste .actions { margin-top: 10px; }
+details.paste { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }

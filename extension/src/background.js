@@ -19,6 +19,43 @@ import {
 } from './core/alerts.js';
 
 const ALARM_PREFIX = 'trial:';
+const SNOOZE_PREFIX = 'snooze:';
+const DIGEST_ALARM = 'daily-digest';
+const SNOOZE_MS = 3 * HOUR;
+
+/** Next 09:00 local time, so the digest lands at the start of the day. */
+function nextNineAm(now = new Date()) {
+  const d = new Date(now);
+  d.setHours(9, 0, 0, 0);
+  if (d.getTime() <= now.getTime()) d.setDate(d.getDate() + 1);
+  return d.getTime();
+}
+
+async function ensureDigest() {
+  const existing = await chrome.alarms.get(DIGEST_ALARM);
+  if (!existing) await chrome.alarms.create(DIGEST_ALARM, { when: nextNineAm(), periodInMinutes: 24 * 60 });
+}
+
+/** Morning roll-up: everything renewing this week plus anything still unanswered. */
+async function fireDigest() {
+  const trials = await getTrials();
+  const now = new Date();
+  const week = trials.filter(
+    (t) => derivedStatus(t, now) === 'active' && msUntil(t.renewsAt, now) <= 7 * 24 * HOUR,
+  );
+  const unanswered = trials.filter((t) => derivedStatus(t, now) === 'charged');
+  if (!week.length && !unanswered.length) return;
+  const parts = [];
+  if (week.length) parts.push(`${week.length} trial${week.length > 1 ? 's' : ''} renew this week: ${week.map((t) => t.serviceName).join(', ')}`);
+  if (unanswered.length) parts.push(`${unanswered.length} renewed without an answer — did you cancel?`);
+  await chrome.notifications.create(DIGEST_ALARM, {
+    type: 'basic',
+    iconUrl: chrome.runtime.getURL('icons/icon-128.png'),
+    title: 'TrialExit — your trials today',
+    message: parts.join('. '),
+    priority: 1,
+  });
+}
 
 /** @returns {Promise<import('./core/types.js').Trial[]>} */
 async function getTrials() {
@@ -51,9 +88,11 @@ function cancelUrlFor(trials, directory, trialId) {
 async function refreshBadge(trials) {
   const list = trials ?? (await getTrials());
   const now = new Date();
-  const critical = list.filter(
-    (t) => derivedStatus(t, now) === 'active' && msUntil(t.renewsAt, now) <= 48 * HOUR,
-  ).length;
+  const critical = list.filter((t) => {
+    const st = derivedStatus(t, now);
+    if (st === 'charged') return msUntil(t.renewsAt, now) > -3 * 24 * HOUR; // ask for 3 days
+    return (st === 'active' || st === 'awaiting_confirmation') && msUntil(t.renewsAt, now) <= 48 * HOUR;
+  }).length;
   await chrome.action.setBadgeBackgroundColor({ color: '#D93A2B' });
   await chrome.action.setBadgeText({ text: critical > 0 ? String(critical) : '' });
   const next = sortedForDisplay(list, now).find((t) => derivedStatus(t, now) === 'active');
@@ -88,31 +127,78 @@ async function resyncAlarms() {
 }
 
 async function fireNotification(alarmNameValue) {
-  const parsed = parseAlarmName(alarmNameValue);
+  const isSnooze = alarmNameValue.startsWith(SNOOZE_PREFIX);
+  const parsed = isSnooze
+    ? (() => {
+        const [, trialId, kind] = alarmNameValue.split(':');
+        return { trialId, kind };
+      })()
+    : parseAlarmName(alarmNameValue);
   if (!parsed) return;
   const trials = await getTrials();
   const directory = await getDirectory();
   const found = cancelUrlFor(trials, directory, parsed.trialId);
-  if (!found?.trial || derivedStatus(found.trial) !== 'active') return;
+  if (!found?.trial) return;
+  const status = derivedStatus(found.trial);
+  const kind = /** @type {any} */ (parsed.kind);
+  const checkin = kind === 'checkin';
+  if (checkin ? !['charged', 'active', 'awaiting_confirmation'].includes(status) : !['active', 'awaiting_confirmation'].includes(status)) return;
 
-  await chrome.notifications.create(alarmNameValue, {
+  // One notification id per trial: a newer rung replaces the older one.
+  const id = `${ALARM_PREFIX}${parsed.trialId}:${kind}`;
+  await chrome.notifications.create(id, {
     type: 'basic',
     iconUrl: chrome.runtime.getURL('icons/icon-128.png'),
-    title: notificationTitle(found.trial, /** @type {any} */ (parsed.kind)),
-    message: notificationBody(found.trial),
+    title: notificationTitle(found.trial, kind),
+    message: notificationBody(found.trial, kind),
     contextMessage: found.entry ? `Cancel at ${found.entry.name}` : 'Open TrialExit to cancel',
+    buttons: checkin
+      ? [{ title: 'Open TrialExit' }]
+      : [{ title: found.url ? 'Open cancel page' : 'Open TrialExit' }, { title: 'Snooze 3 hours' }],
     priority: 2,
     requireInteraction: true,
   });
 }
 
-chrome.runtime.onInstalled.addListener(async () => {
+/** @param {string} notificationId @param {number} buttonIndex */
+async function handleNotification(notificationId, buttonIndex = 0) {
+  await chrome.notifications.clear(notificationId);
+  if (notificationId === DIGEST_ALARM) return chrome.runtime.openOptionsPage();
+  const parsed = parseAlarmName(notificationId);
+  if (!parsed) return chrome.runtime.openOptionsPage();
+
+  if (buttonIndex === 1) {
+    const renewsAt = (await getTrials()).find((t) => t.id === parsed.trialId)?.renewsAt;
+    // Never snooze past the charge: cap at 10 minutes before renewal.
+    const cap = renewsAt ? new Date(renewsAt).getTime() - 10 * 60_000 : Infinity;
+    const when = Math.min(Date.now() + SNOOZE_MS, cap);
+    if (when > Date.now()) {
+      await chrome.alarms.create(`${SNOOZE_PREFIX}${parsed.trialId}:${parsed.kind}`, { when });
+    }
+    return;
+  }
+
+  const trials = await getTrials();
+  const found = cancelUrlFor(trials, await getDirectory(), parsed.trialId);
+  if (parsed.kind !== 'checkin' && found?.url && derivedStatus(found.trial) === 'active') {
+    // Opening the cancel page is intent, not proof — never mark it cancelled.
+    await setTrials(transition(trials, parsed.trialId, 'awaiting_confirmation'));
+    await chrome.tabs.create({ url: found.url });
+  } else {
+    await chrome.runtime.openOptionsPage();
+  }
+}
+
+chrome.runtime.onInstalled.addListener(async (details) => {
   await chrome.alarms.create('badge-refresh', { periodInMinutes: 30 });
+  await ensureDigest();
+  if (details.reason === 'install') chrome.runtime.openOptionsPage();
   await refreshBadge();
   await resyncAlarms();
 });
 
 chrome.runtime.onStartup.addListener(async () => {
+  await ensureDigest();
   await refreshBadge();
   await resyncAlarms();
 });
@@ -123,7 +209,11 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     resyncAlarms();
     return;
   }
-  if (alarm.name.startsWith(ALARM_PREFIX)) fireNotification(alarm.name);
+  if (alarm.name === DIGEST_ALARM) {
+    fireDigest();
+    return;
+  }
+  if (alarm.name.startsWith(ALARM_PREFIX) || alarm.name.startsWith(SNOOZE_PREFIX)) fireNotification(alarm.name);
 });
 
 chrome.storage.onChanged.addListener((changes, area) => {
@@ -132,21 +222,8 @@ chrome.storage.onChanged.addListener((changes, area) => {
   resyncAlarms();
 });
 
-chrome.notifications.onClicked.addListener(async (notificationId) => {
-  const parsed = parseAlarmName(notificationId);
-  const trials = await getTrials();
-  const directory = await getDirectory();
-  const found = parsed ? cancelUrlFor(trials, directory, parsed.trialId) : null;
-
-  if (found?.url) {
-    // Opening the cancel page is intent, not proof — never mark it cancelled.
-    await setTrials(transition(trials, /** @type {string} */ (parsed?.trialId), 'awaiting_confirmation'));
-    await chrome.tabs.create({ url: found.url });
-  } else {
-    await chrome.runtime.openOptionsPage();
-  }
-  await chrome.notifications.clear(notificationId);
-});
+chrome.notifications.onClicked.addListener((id) => handleNotification(id, 0));
+chrome.notifications.onButtonClicked.addListener((id, index) => handleNotification(id, index));
 
 /**
  * Injected into the active tab on demand. Must be fully self-contained: Chrome
