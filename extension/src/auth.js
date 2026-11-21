@@ -118,6 +118,34 @@ export async function signInWithProvider(provider) {
   return finishFromHash(new URL(final ?? '').hash);
 }
 
+/**
+ * Web: Google's own button ("Sign in with Google", runs on our domain), then
+ * exchange its ID token for a Supabase session. The nonce ties the token to
+ * this page load so a stolen token can't be replayed.
+ */
+export async function signInWithGoogleIdToken(idToken, rawNonce) {
+  return store(
+    toSession(
+      await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=id_token`, {
+        method: 'POST',
+        headers: { apikey: SUPABASE_ANON_KEY, 'content-type': 'application/json' },
+        body: JSON.stringify({ provider: 'google', id_token: idToken, nonce: rawNonce }),
+      }).then(async (r) => {
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.msg || d.error_description || d.message || `auth-${r.status}`);
+        return d;
+      }),
+    ),
+  );
+}
+
+/** Random nonce + its SHA-256 hex (Google gets the hash, Supabase the raw value). */
+export async function makeNonce() {
+  const raw = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(24))));
+  const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(raw));
+  return { raw, hashed: [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, '0')).join('') };
+}
+
 /** Web only: after the OAuth redirect lands back on the app. */
 export async function completeRedirect() {
   if (IS_EXTENSION) return null;

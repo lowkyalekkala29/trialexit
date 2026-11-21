@@ -437,3 +437,4 @@ input.switch:focus { outline: 3px solid #16a34a33; }
 .mail-icon { font-size: 30px; }
 .auth-form details.more { display: grid; gap: 10px; }
 .auth-form details.more[open] { display: grid; gap: 10px; }
+.gsi-slot { min-height: 44px; display: flex; justify-content: center; }

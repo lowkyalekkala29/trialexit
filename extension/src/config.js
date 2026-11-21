@@ -12,6 +12,13 @@ export const SUPABASE_ANON_KEY = 'sb_publishable__iCQhZcXp0QPyzmVClDomQ_4AHrqDRt
 /** Where the web app lives (used for OAuth redirects and email links). */
 export const APP_URL = 'https://trialexit.vercel.app';
 
+/**
+ * Google OAuth web client (public ID, not a secret). Used for Google's own
+ * "Sign in with Google" button on the web app, so the consent screen shows
+ * our domain instead of the Supabase project address.
+ */
+export const GOOGLE_CLIENT_ID = '1098958409027-m9rit0l0do0rg6ia0c8q6fp7bg85p54d.apps.googleusercontent.com';
+
 /** Microsoft Entra app (Outlook scan in the extension). */
 export const OUTLOOK_CLIENT_ID = '';
 

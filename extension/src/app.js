@@ -13,7 +13,7 @@ import { normalizeDirectory } from './core/directory.js';
 import { CLOUD_ENABLED } from './config.js';
 import { getSession, completeRedirect, getProviders } from './auth.js';
 import { pullProfile, pushProfile, syncTrials, PROFILE_FIELDS } from './cloud.js';
-import { authHtml, authActions } from './view-auth.js';
+import { authHtml, authActions, mountGoogleButton } from './view-auth.js';
 import { onboardingHtml, onboardingActions } from './view-onboarding.js';
 import { dashboardHtml, trialsHtml, addModalHtml, mailHtml, homeActions } from './view-home.js';
 import { savingsHtml, settingsHtml, helpHtml, accountActions } from './view-account.js';
@@ -85,6 +85,10 @@ function render() {
     }
     document.title = r.path === '/signin' ? 'Sign in — TrialExit' : 'Create account — TrialExit';
     root.innerHTML = previewBar + authHtml(r.path === '/signin' ? 'signin' : 'signup');
+    mountGoogleButton(afterSignIn, (msg) => {
+      state.auth.error = msg;
+      render();
+    });
     return afterRender();
   }
   if (r.path === '/onboarding') {

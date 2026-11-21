@@ -72,14 +72,66 @@ export function authHtml(mode) {
 
 function providerButtons() {
   const p = state.auth.providers ?? { google: false, azure: false };
+  // Web: Google's own button renders into this slot (see mountGoogleButton).
+  const useGsi = IS_WEB && CLOUD_ENABLED && p.google;
   const btn = (key, icon) =>
-    p[key]
+    key === 'google' && useGsi
+      ? '<div id="gsi-slot" class="gsi-slot"></div>'
+      : p[key]
       ? `<button class="block" data-act="auth-provider" data-provider="${key}">${icon} Continue with ${PROVIDER_NAME[key]}</button>`
       : '';
   const buttons = btn('google', GOOGLE) + btn('azure', MICROSOFT);
   const off = ['google', 'azure'].filter((k) => !p[k]).map((k) => PROVIDER_NAME[k]);
   return `${buttons ? `<div class="auth-providers">${buttons}</div><div class="divider"><span>or</span></div>` : ''}
     ${off.length && state.auth.providers ? `<p class="hint" style="margin:0">${off.join(' and ')} sign-in ${off.length > 1 ? 'are' : 'is'} being switched on — use your email for now. It works with any address, including Gmail and Outlook.</p>` : ''}`;
+}
+
+/**
+ * Loads Google Identity Services and renders the official button into
+ * #gsi-slot. Falls back to the redirect button if Google's script can't load.
+ * @param {(session:any)=>Promise<void>} onSession @param {(msg:string)=>void} onError
+ */
+export async function mountGoogleButton(onSession, onError) {
+  const slot = document.getElementById('gsi-slot');
+  if (!slot || slot.dataset.mounted) return;
+  slot.dataset.mounted = '1';
+  const { GOOGLE_CLIENT_ID } = await import('./config.js');
+  const { makeNonce, signInWithGoogleIdToken } = await import('./auth.js');
+  const fallback = () => {
+    slot.outerHTML = `<button class="block" data-act="auth-provider" data-provider="google">${GOOGLE} Continue with Google</button>`;
+  };
+  try {
+    if (!(/** @type {any} */ (window).google?.accounts?.id)) {
+      await new Promise((resolve, reject) => {
+        const sc = document.createElement('script');
+        sc.src = 'https://accounts.google.com/gsi/client';
+        sc.async = true;
+        sc.onload = resolve;
+        sc.onerror = reject;
+        setTimeout(reject, 6000);
+        document.head.append(sc);
+      });
+    }
+    const nonce = await makeNonce();
+    const gid = /** @type {any} */ (window).google.accounts.id;
+    gid.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      nonce: nonce.hashed,
+      use_fedcm_for_prompt: true,
+      callback: async (resp) => {
+        try {
+          const session = await signInWithGoogleIdToken(resp.credential, nonce.raw);
+          await onSession(session);
+        } catch (err) {
+          onError(friendly(err));
+        }
+      },
+    });
+    const width = Math.min(400, slot.getBoundingClientRect().width || 400);
+    gid.renderButton(slot, { theme: 'outline', size: 'large', text: 'continue_with', shape: 'rectangular', logo_alignment: 'center', width });
+  } catch {
+    fallback();
+  }
 }
 
 function friendly(err) {
