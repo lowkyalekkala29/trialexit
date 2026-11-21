@@ -17,6 +17,9 @@ puts the reminder, the direct cancellation URL, and the steps in one place.
 
 ## What it does
 
+- **Catches trials on any website** — a lightweight on-device check on every page; on a trial checkout
+  it remembers the tab, and after you press "Start trial" it asks "Trial started at X — track it?" with
+  the end date and price prefilled. Handles SPA checkouts and payment redirects (Stripe-hosted etc.).
 - **Finds trials in your inbox** — connect Gmail or Outlook (read-only); trial confirmation emails,
   including ones from phone and app-store signups, become one-click suggestions. Rescans every 6h.
 - **Onboarding in 30 seconds** — tap the services you're trialling, pick when each ends.
@@ -39,7 +42,7 @@ puts the reminder, the direct cancellation URL, and the steps in one place.
 ## Scripts
 
 ```
-npm test              # 52 tests, zero dependencies
+npm test              # 62 tests, zero dependencies
 npm run site          # build landing + web app into site/
 npm run sync          # vendor core/ + directory/ into extension/ (Chrome can't import outside its root)
 npm run icons         # regenerate PNG icons (hand-rolled PNG encoder, no image deps)
@@ -93,5 +96,5 @@ Broken link? Open an issue with the service name and what changed.
 
 ## Status
 
-`0.4.0` — pre-release. Paywall is wired but dormant (`FREE_LAUNCH` in `core/src/store.js`) while
+`0.5.0` — pre-release. Paywall is wired but dormant (`FREE_LAUNCH` in `core/src/store.js`) while
 the product is free for the first 20 users. Payments are not integrated yet.

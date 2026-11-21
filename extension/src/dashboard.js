@@ -940,13 +940,36 @@ chrome.storage.onChanged?.addListener((changes, area) => {
   }
 });
 
-if (!IS_WEB) {
-  const foot = document.createElement('p');
-  foot.className = 'hint';
-  foot.style.cssText = 'text-align:center;margin-top:30px';
-  foot.textContent = `TrialExit ${chrome.runtime.getManifest().version} · extension id ${chrome.runtime.id}`;
-  document.querySelector('.wrap')?.append(foot);
+async function renderSettings() {
+  if (IS_WEB) return;
+  let foot = document.getElementById('settings-foot');
+  if (!foot) {
+    foot = document.createElement('div');
+    foot.id = 'settings-foot';
+    foot.className = 'hint';
+    foot.style.cssText = 'margin-top:34px;padding-top:16px;border-top:1px solid var(--line);display:grid;gap:8px;justify-items:center;text-align:center';
+    document.querySelector('.wrap')?.append(foot);
+  }
+  const { mutedHosts = [], settings = {} } = await chrome.storage.local.get(['mutedHosts', 'settings']);
+  const on = settings.watchCheckouts !== false;
+  foot.innerHTML = `
+    <label style="display:flex;gap:8px;align-items:center;font-size:13px;color:var(--text);font-weight:500">
+      <input type="checkbox" id="watch-toggle" ${on ? 'checked' : ''} style="width:auto"> Watch checkout pages on every site for new trials
+    </label>
+    ${mutedHosts.length ? `<span>Never asked on: ${mutedHosts.map(esc).join(', ')} · <button class="ghost sm" id="unmute">Ask again everywhere</button></span>` : ''}
+    <span>Pages are read on this device only. TrialExit ${esc(chrome.runtime.getManifest().version)} · extension id ${esc(chrome.runtime.id)}</span>`;
+  document.getElementById('watch-toggle')?.addEventListener('change', async (e) => {
+    const latest = (await chrome.storage.local.get('settings')).settings ?? {};
+    const checked = /** @type {HTMLInputElement} */ (e.target).checked;
+    state.settings.watchCheckouts = checked;
+    await chrome.storage.local.set({ settings: { ...latest, watchCheckouts: checked } });
+  });
+  document.getElementById('unmute')?.addEventListener('click', async () => {
+    await chrome.storage.local.set({ mutedHosts: [] });
+    renderSettings();
+  });
 }
+renderSettings();
 
 setInterval(renderCards, 30_000);
 boot();

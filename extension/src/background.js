@@ -19,6 +19,7 @@ import {
 } from './core/alerts.js';
 
 import { scanMailbox, disconnectMailbox, PROVIDERS } from './mail-scan.js';
+import { decideActivation, pageSignals } from './core/activation.js';
 
 const ALARM_PREFIX = 'trial:';
 const MAIL_ALARM = 'mail-scan';
@@ -349,26 +350,84 @@ async function detectActiveTab() {
   return { ok: true, analysis: await analyzePage(scan) };
 }
 
+/* ------------------------------------------------ trial activation (all sites) */
+
+const INTENT_KEY = (tabId) => `intent:${tabId}`;
+
+async function getIntent(tabId) {
+  if (tabId == null) return null;
+  const key = INTENT_KEY(tabId);
+  return (await chrome.storage.session.get(key))[key] ?? null;
+}
+
+async function setIntent(tabId, intent) {
+  if (tabId == null) return;
+  const key = INTENT_KEY(tabId);
+  if (intent) await chrome.storage.session.set({ [key]: intent });
+  else await chrome.storage.session.remove(key);
+}
+
+chrome.tabs.onRemoved.addListener((tabId) => setIntent(tabId, null));
+
+/** Registrable-ish domain, so app.x.com and x.com share a mute. */
+function baseDomain(hostname) {
+  if (/^[\d.]+$|^\[|^localhost$/.test(hostname)) return hostname;
+  const parts = String(hostname).replace(/^www\./, '').split('.');
+  return parts.length > 2 && parts.at(-2).length <= 3 ? parts.slice(-3).join('.') : parts.slice(-2).join('.');
+}
+
+const CHECKOUT_URL = /checkout|subscri|signup|sign-up|trial|billing|payment|upgrade|plans?\b|pricing|premium|purchase/i;
+
 /**
- * Tier 3: user grants this one origin, and we register a persistent content
- * script for it. Still not <all_urls> — one origin at a time, on request.
- * @param {string} origin
+ * Every page reports here. Ordinary pages arrive with empty text and return
+ * immediately unless this tab has a pending trial checkout.
+ * @param {any} page
+ * @param {number|undefined} tabId
  */
-async function registerSiteScript(origin) {
-  if (!/^https?:\/\/[^/]+$/.test(origin)) return { ok: false, reason: 'bad-origin' };
-  const id = `site-${btoa(origin).replace(/[^a-zA-Z0-9]/g, '').slice(0, 40)}`;
-  const existing = await chrome.scripting.getRegisteredContentScripts();
-  if (existing.some((s) => s.id === id)) return { ok: true, already: true };
-  await chrome.scripting.registerContentScripts([
-    {
-      id,
-      matches: [`${origin}/*`],
-      js: ['src/detect.js'],
-      runAt: 'document_idle',
-      persistAcrossSessions: true,
-    },
-  ]);
-  return { ok: true };
+async function handlePageScan(page, tabId) {
+  const intent = await getIntent(tabId);
+  if (!page.text && !intent) return {};
+  const { settings } = await chrome.storage.local.get('settings');
+  if (settings?.watchCheckouts === false) return {};
+
+  const { mutedHosts = [] } = await chrome.storage.local.get('mutedHosts');
+  const muted = mutedHosts.includes(baseDomain(page.hostname));
+  const signals = pageSignals(page.url, page.text);
+  const analysis = page.text ? { ...(await analyzePage(page)), siteName: page.siteName || null } : null;
+
+  const isCheckout = Boolean(
+    page.text && signals.trial && !signals.success && (page.paymentForm || CHECKOUT_URL.test(page.url)),
+  );
+  if (isCheckout && !muted) {
+    const keepSubmit = intent?.url === page.url && intent.submitted;
+    await setIntent(tabId, { at: Date.now(), submitted: keepSubmit, url: page.url, host: page.hostname, analysis });
+    return { checkout: true };
+  }
+
+  const trials = await getTrials();
+  const candidate = intent?.analysis ?? analysis;
+  const name = candidate?.entry?.name ?? candidate?.siteName ?? page.siteName ?? '';
+  const alreadyTracked = Boolean(
+    name &&
+      trials.some(
+        (t) =>
+          ['active', 'awaiting_confirmation'].includes(t.status) &&
+          (t.serviceId === candidate?.entry?.serviceId || t.serviceName.toLowerCase() === name.toLowerCase()) &&
+          Date.now() - new Date(t.createdAt).getTime() < 3 * 24 * HOUR,
+      ),
+  );
+
+  const decision = decideActivation({
+    intent,
+    current: { host: page.hostname, url: page.url, signals, analysis: analysis ?? { siteName: page.siteName || null } },
+    alreadyTracked,
+    muted,
+  });
+  if (decision.show) {
+    await setIntent(tabId, null);
+    return { show: true, confidence: decision.confidence, analysis: decision.analysis };
+  }
+  return {};
 }
 
 export const GMAIL_TRIAL_SEARCH =
@@ -501,10 +560,27 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       .catch((err) => sendResponse({ ok: false, reason: String(err?.message ?? err) }));
     return true;
   }
-  if (msg?.type === 'register-site') {
-    registerSiteScript(msg.origin)
+  if (msg?.type === 'page-scan') {
+    handlePageScan(msg.page ?? {}, _sender.tab?.id)
       .then(sendResponse)
-      .catch((err) => sendResponse({ ok: false, reason: String(err?.message ?? err) }));
+      .catch(() => sendResponse({}));
+    return true;
+  }
+  if (msg?.type === 'checkout-submitted') {
+    getIntent(_sender.tab?.id).then(async (intent) => {
+      if (intent) await setIntent(_sender.tab?.id, { ...intent, submitted: true, at: Date.now() });
+      sendResponse({ ok: true });
+    });
+    return true;
+  }
+  if (msg?.type === 'mute-site') {
+    chrome.storage.local.get('mutedHosts').then(async ({ mutedHosts = [] }) => {
+      const set = new Set(mutedHosts);
+      set.add(baseDomain(msg.hostname ?? ''));
+      await chrome.storage.local.set({ mutedHosts: [...set] });
+      await setIntent(_sender.tab?.id, null);
+      sendResponse({ ok: true });
+    });
     return true;
   }
   if (msg?.type === 'refresh-badge') {

@@ -44,7 +44,13 @@ It runs on your device and transmits nothing.
 - A plain HTTP GET for the public service directory JSON at `raw.githubusercontent.com`. It contains no identifiers and no information about you — it is the same request every user makes.
 - If you connected email: requests from your browser to Google / Microsoft's own APIs, authenticated as you, to read trial emails as described above. Those requests go to the provider, not to us.
 
-Page text is read on-device, only on merchant domains listed in the manifest, only on the tab you click, or only on origins you explicitly granted. That text is used to guess a trial length and price, is shown to you for correction, and is never transmitted anywhere.
+To catch trials as you start them, a small script runs on the websites you visit. On an ordinary page
+it checks the address and visible text for trial or checkout wording (e.g. "free trial", "start your
+trial", a card form), finds none, and does nothing else. Only when a page looks like a trial checkout
+or a "your trial has started" page is its text parsed — inside the extension, on your device — to guess
+the service, trial length and price, which are shown to you for confirmation. Page content is never
+transmitted anywhere and never stored; only a trial you confirm is saved. You can turn this off in the
+dashboard, or choose "Never on this site" for any site.
 
 No telemetry. No crash reporting. No advertising identifiers.
 
@@ -55,29 +61,17 @@ No telemetry. No crash reporting. No advertising identifiers.
 | `storage` | Save your trials locally |
 | `alarms` | Schedule the alert before renewal |
 | `notifications` | Show the alert |
-| `activeTab` | Read the current tab **only when you click the extension yourself** |
-| `scripting` | Run the checkout detector on that one tab, on demand |
+| `activeTab`, `scripting` | "Track a trial on this page" from the toolbar, on tabs opened before install |
+| host access to all sites + content script on all sites | Detect trial checkouts and "trial started" pages as described above, on-device only |
 | host access to `raw.githubusercontent.com` | Refresh the cancel-link directory |
 | `identity` | Sign in to Google / Microsoft when you press Connect Gmail / Outlook |
 | host access to `gmail.googleapis.com`, `graph.microsoft.com`, `oauth2.googleapis.com` | Read trial emails (read-only) after you connect, and revoke access on disconnect |
 | content script on `mail.google.com` | Offer to track the trial in the email you have open |
-| content scripts on the listed merchant domains | Auto-detect a checkout page on the 10 known merchants |
-| *optional* per-site access | Only if you press "Always detect here". One site at a time, revocable in Chrome settings |
-
-The extension deliberately does **not** request access to all sites. Detection works everywhere in
-three tiers:
-
-1. **Known merchants** — auto-detect, no click.
-2. **Any other site** — you click the toolbar icon, the detector reads that tab only.
-3. **Any other site, repeatedly** — you grant that one origin, and it stops asking.
-
-There is no configuration in which this extension reads pages you have not opened or explicitly
-invoked it on.
 
 ## What is never done
 
 - Cancelling a subscription on your behalf
-- Reading page content beyond the current checkout page, and only to detect trial signals
+- Sending page content anywhere, or storing it
 - Sharing or selling any data, because none is collected
 
 ## Removing your data

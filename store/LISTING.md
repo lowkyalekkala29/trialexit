@@ -8,7 +8,7 @@ Upload: `dist/trialexit-<version>.zip` from `npm run package`.
 **Name:** TrialExit
 
 **Summary (≤132 chars):**
-Finds the free trials you started (checkout pages + Gmail/Outlook) and nudges you before they charge, with a one-click cancel link.
+Catches every free trial you start — on any site, in Gmail or Outlook — and nudges you before they charge, with a one-click cancel link.
 
 **Category:** Productivity  **Language:** English
 
@@ -34,7 +34,7 @@ PRIVATE BY DESIGN
 • No account. No bank or card connection. No analytics.
 • Your trials are stored only in your browser.
 • Email access is optional and read-only. Emails are read on your device and never uploaded — there is no TrialExit server.
-• No "read all websites" permission. Pages are read only on known checkout sites, or on the tab where you click the icon.
+• Checkout detection works on every site, entirely on your device. Ordinary pages are skipped after a quick local check; turn it off or mute any site any time.
 
 Free during launch.
 ```
@@ -58,19 +58,18 @@ Help users remember to cancel free trials before they renew, by tracking renewal
 | storage | Saves the user's tracked trials (service name, renewal date, amount) locally on the device. Nothing is synced to a server. |
 | alarms | Schedules the reminder that fires 48 hours / 24 hours before a trial renews. |
 | notifications | Shows the renewal reminder. Clicking it opens that service's cancellation page. |
-| activeTab | When the user clicks the toolbar icon and presses "Check this page", reads the current tab to detect a free-trial offer (trial length and price) so the user doesn't have to type it. |
+| activeTab | Lets the user press "Track a trial on this page" on a tab that was open before the extension was installed. |
 | scripting | Injects the trial-detection function into the active tab only after the user clicks "Check this page", and registers the detector on a single site only when the user presses "Always detect here" and grants that site. |
 | identity | Lets the user sign in to Google or Microsoft when they press "Connect Gmail" / "Connect Outlook", to grant read-only mailbox access used to find trial confirmation emails. |
 | Host permission: gmail.googleapis.com, oauth2.googleapis.com | After the user connects Gmail, searches their mailbox (read-only) for free-trial confirmation emails; oauth2.googleapis.com is used only to revoke the token on disconnect. Email content is processed on the device and never transmitted elsewhere. |
 | Host permission: graph.microsoft.com | Same as above for Outlook / Microsoft 365 mailboxes, via Microsoft Graph Mail.Read. |
 | Content script on mail.google.com | Reads only the email the user currently has open, to offer "Track this trial" when it is a trial confirmation. Processed on-device; nothing is transmitted. |
 | Host permission: raw.githubusercontent.com | Downloads the public JSON list of cancellation links (no user data is sent) so broken links can be fixed without an extension update. |
-| Optional host permissions (https://*/*, http://*/*) | Never requested at install. Requested for one specific site only when the user presses "Always detect here" on that site, so trial detection works there automatically. Users can revoke it at any time. |
-| Content scripts on listed merchant domains | Detects free-trial checkout pages on 10 well-known subscription services and offers to log the trial. Page text is processed on-device and never transmitted. |
+| Host permissions + content script on all http(s) sites | The extension's single purpose is catching free trials when the user starts them, and trials are sold on thousands of different sites, so a fixed list cannot work. On each page the script checks locally for trial/checkout wording and payment forms; ordinary pages are left alone after that check. Only trial checkout and "trial started" pages are parsed, on-device, to prefill the service, end date and price for the user to confirm. No page content is transmitted or stored. Users can switch detection off or mute any site. |
 
 **Remote code:** No, I am not using remote code. (The downloaded directory is JSON data, never executed.)
 
-**Data usage:** tick **"Personal communications"** (emails are read, on-device, when the user connects a mailbox) and **"Website content"** (checkout pages). Nothing is transmitted to the developer; say so in the justification. Then tick all three certifications (no selling, no unrelated use, no creditworthiness use).
+**Data usage:** tick **"Personal communications"** (emails are read, on-device, when the user connects a mailbox), **"Website content"** (checkout pages). Leave **"Web history"** unticked: pages are checked on-device and no browsing history is stored. Nothing is transmitted to the developer; say so in the justification. Then tick all three certifications (no selling, no unrelated use, no creditworthiness use).
 
 **Privacy policy URL:** https://github.com/lowkyalekkala29/trialexit/blob/main/PRIVACY.md
 
@@ -78,5 +77,5 @@ Help users remember to cancel free trials before they renew, by tracking renewal
 Visibility: Public · Regions: All · Free.
 
 ## Review tips
-- Review usually takes 1–3 days; the optional broad host permission can add time. If it gets rejected over it, remove `optional_host_permissions` + the "Always detect here" button — activeTab detection still works everywhere.
+- Broad host permissions (all sites) + email scopes trigger an in-depth review: plan for 3–7 days, sometimes more. The justification above is what reviewers read — keep it.
 - Bump `version` in `extension/manifest.json` for every re-upload.

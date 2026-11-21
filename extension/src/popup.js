@@ -56,7 +56,6 @@ async function renderDetection() {
         <div class="meta" style="font-size:12px">${entry ? 'Cancel link on file' : 'Not in the directory yet'}</div>
         <div class="actions" style="margin-top:2px">
           <button class="primary sm" id="track-btn">Track this trial</button>
-          ${entry ? '' : '<button class="ghost sm" id="always-btn">Always detect here</button>'}
         </div>
       </div>`;
 
@@ -77,20 +76,6 @@ async function renderDetection() {
       window.close();
     });
 
-    document.getElementById('always-btn')?.addEventListener('click', async () => {
-      const tab = await activeTab();
-      if (!tab?.url) return;
-      const origin = new URL(tab.url).origin;
-      // permissions.request must run inside this click handler to keep the
-      // user-gesture flag; that is why it lives here and not in the worker.
-      const granted = await chrome.permissions.request({ origins: [`${origin}/*`] }).catch(() => false);
-      if (!granted) return;
-      await chrome.runtime.sendMessage({ type: 'register-site', origin });
-      detectArea.insertAdjacentHTML(
-        'beforeend',
-        '<div class="hint">Auto-detect is on for this site. Reload the page to see it.</div>',
-      );
-    });
   });
 }
 

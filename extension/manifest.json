@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "TrialExit",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Catch every free trial — from checkout pages and your Gmail — and get nudged before it charges, with a one-click cancel link.",
   "minimum_chrome_version": "116",
   "icons": {
@@ -32,40 +32,21 @@
     "identity"
   ],
   "host_permissions": [
-    "https://raw.githubusercontent.com/*",
-    "https://gmail.googleapis.com/*",
-    "https://oauth2.googleapis.com/*",
-    "https://graph.microsoft.com/*"
-  ],
-  "optional_host_permissions": [
+    "http://*/*",
     "https://*/*",
-    "http://*/*"
+    "https://gmail.googleapis.com/*",
+    "https://graph.microsoft.com/*",
+    "https://oauth2.googleapis.com/*",
+    "https://raw.githubusercontent.com/*"
   ],
   "content_scripts": [
     {
       "matches": [
-        "https://*.adobe.com/*",
-        "https://*.anthropic.com/*",
-        "https://*.audible.com/*",
-        "https://*.audible.in/*",
-        "https://*.canva.com/*",
-        "https://*.chatgpt.com/*",
-        "https://*.claude.ai/*",
-        "https://*.disneyplus.com/*",
-        "https://*.dropbox.com/*",
-        "https://*.hotstar.com/*",
-        "https://*.hulu.com/*",
-        "https://*.jiohotstar.com/*",
-        "https://*.linkedin.com/*",
-        "https://*.music.youtube.com/*",
-        "https://*.netflix.com/*",
-        "https://*.one.google.com/*",
-        "https://*.openai.com/*",
-        "https://*.primevideo.com/*",
-        "https://*.sonyliv.com/*",
-        "https://*.spotify.com/*",
-        "https://*.youtube.com/*",
-        "https://*.zee5.com/*"
+        "https://*/*",
+        "http://*/*"
+      ],
+      "exclude_matches": [
+        "https://mail.google.com/*"
       ],
       "js": [
         "src/detect.js"

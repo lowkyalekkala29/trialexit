@@ -14,7 +14,7 @@ const repo = join(root, '..');
 await mkdir(join(repo, 'extension/src/core'), { recursive: true });
 await mkdir(join(repo, 'extension/data'), { recursive: true });
 
-for (const file of ['types.js', 'dates.js', 'ics.js', 'store.js', 'directory.js', 'alerts.js', 'guess.js', 'mail.js']) {
+for (const file of ['types.js', 'dates.js', 'ics.js', 'store.js', 'directory.js', 'alerts.js', 'guess.js', 'mail.js', 'activation.js']) {
   await cp(join(repo, 'core/src', file), join(repo, 'extension/src/core', file));
 }
 
@@ -23,14 +23,7 @@ await cp(join(repo, 'directory/directory.json'), join(repo, 'extension/data/dire
 const manifestPath = join(repo, 'extension/manifest.json');
 const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
 
-// Auto-detect on every merchant in the directory, not a hand-kept subset.
-const directory = JSON.parse(await readFile(join(repo, 'directory/directory.json'), 'utf8'));
-// Whole-platform domains would run the detector on every search, inbox and shop page.
-const TOO_BROAD = new Set(['google.com', 'amazon.com', 'amazon.in']);
-const domains = [...new Set(directory.entries.flatMap((e) => e.domains ?? []))]
-  .filter((d) => !TOO_BROAD.has(d))
-  .sort();
-manifest.content_scripts[0].matches = domains.map((d) => `https://*.${d}/*`);
+// Detection runs on every site (see extension/src/detect.js for the cost/privacy rules).
 await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
 
 console.log('synced: core/*.js -> extension/src/core, directory.json -> extension/data');
