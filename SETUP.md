@@ -1,5 +1,10 @@
 # Launch setup — the parts only the owner can do
 
+## Live
+
+- Web app: https://trialexit.vercel.app/app/ (deploy again with `npm run deploy`)
+- Backend: Supabase project `tbascuhwmmuvkyscwunq`
+
 ## 0. Backend (Supabase) — DONE
 
 Project `trialexit` (ref `tbascuhwmmuvkyscwunq`, Mumbai) is live:

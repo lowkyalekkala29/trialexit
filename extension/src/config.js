@@ -10,7 +10,7 @@ export const SUPABASE_URL = 'https://tbascuhwmmuvkyscwunq.supabase.co';
 export const SUPABASE_ANON_KEY = 'sb_publishable__iCQhZcXp0QPyzmVClDomQ_4AHrqDRt';
 
 /** Where the web app lives (used for OAuth redirects and email links). */
-export const APP_URL = '';
+export const APP_URL = 'https://trialexit.vercel.app';
 
 /** Microsoft Entra app (Outlook scan in the extension). */
 export const OUTLOOK_CLIENT_ID = '';

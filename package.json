@@ -14,7 +14,8 @@
     "site": "node scripts/build-site.mjs",
     "test": "node --test \"core/test/*.test.js\"",
     "check": "node scripts/check-imports.mjs",
-    "typecheck": "npx --yes typescript@5 tsc --noEmit --allowJs --checkJs --target es2022 --module esnext --moduleResolution bundler core/src/*.js"
+    "typecheck": "npx --yes typescript@5 tsc --noEmit --allowJs --checkJs --target es2022 --module esnext --moduleResolution bundler core/src/*.js",
+    "deploy": "node scripts/sync.mjs && node scripts/build-site.mjs && node scripts/deploy-vercel.mjs"
   },
   "engines": {
     "node": ">=20"

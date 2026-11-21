@@ -11,7 +11,7 @@
 import { state, $, esc, IS_WEB, DEFAULT_SETTINGS, save, toast, pickWorkerFields, loadBundledDirectory, refreshDirectory, initials } from './state.js';
 import { normalizeDirectory } from './core/directory.js';
 import { CLOUD_ENABLED } from './config.js';
-import { getSession, completeRedirect } from './auth.js';
+import { getSession, completeRedirect, getProviders } from './auth.js';
 import { pullProfile, pushProfile, syncTrials, PROFILE_FIELDS } from './cloud.js';
 import { authHtml, authActions } from './view-auth.js';
 import { onboardingHtml, onboardingActions } from './view-onboarding.js';
@@ -342,6 +342,10 @@ async function boot() {
   }
   lastProfile = profileSnapshot();
   render();
+  getProviders().then((p) => {
+    state.auth.providers = p;
+    if (document.querySelector('.auth')) render();
+  });
   refreshDirectory(render);
   runSync();
 }

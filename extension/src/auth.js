@@ -62,10 +62,28 @@ async function store(session) {
   return session;
 }
 
+/**
+ * Which sign-in methods are switched on in the Supabase project, so the UI
+ * never offers a button that would only error.
+ * @returns {Promise<{ google: boolean, azure: boolean, email: boolean }>}
+ */
+export async function getProviders() {
+  if (!CLOUD_ENABLED) return { google: true, azure: true, email: true };
+  try {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/settings`, { headers: { apikey: SUPABASE_ANON_KEY } });
+    const d = await res.json();
+    return { google: Boolean(d.external?.google), azure: Boolean(d.external?.azure), email: d.external?.email !== false };
+  } catch {
+    return { google: false, azure: false, email: true };
+  }
+}
+
 /** Step 1 of email sign-in: send a 6-digit code. */
 export async function sendCode(email) {
   if (!CLOUD_ENABLED) return { preview: true };
-  await call('/otp', { email, create_user: true });
+  // Web: the email's sign-in link brings you back to this app.
+  const back = IS_EXTENSION ? '' : `?redirect_to=${encodeURIComponent(`${location.origin}${location.pathname}`)}`;
+  await call(`/otp${back}`, { email, create_user: true });
   return { ok: true };
 }
 
