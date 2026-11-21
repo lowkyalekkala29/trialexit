@@ -323,6 +323,9 @@ const CONFIRM_SIGNALS = [
   /\breceipt\b|\border\s+(?:confirmation|summary|number)\b|\binvoice\b/i,
 ];
 
+/** Too common in ordinary sentences ("we offer support"): only an ad sign in a subject. */
+const SUBJECT_ONLY_PROMO = [/\b(?:deal|deals|sale|offer|offers)\b/i];
+
 const PROMO_SIGNALS = [
   /\btry\s+(?:[\w+-]+\s+){0,3}(?:for\s+)?free\b/i,
   /\bstart\s+(?:your|a)\s+(?:\d+[-\s]?(?:day|week|month)\s+)?free\s+trial\b/i,
@@ -332,7 +335,6 @@ const PROMO_SIGNALS = [
   /\b(?:special|exclusive|introductory)\s+offer\b|\b\d{1,2}\s?%\s+off\b/i,
   /\bupgrade\s+(?:now|today|to)\b/i,
   /\bwe\s+miss\s+you\b|\bcome\s+back\b/i,
-  /\b(?:deal|sale|offer)\b/i,
   /\b(?:only|just|at\s+just)\s+(?:₹|rs\.?|inr|\$)\s?\d/i,
   /(?:₹|rs\.?|\$)\s?\d[\d,.]*\s+for\s+(?:\d+|one|two|three|six|twelve)\s+(?:months?|weeks?|days?)/i,
   /\bsave\s+(?:up\s+to\s+)?(?:₹|rs\.?|\$|\d)/i,
@@ -348,7 +350,7 @@ export function classifyTrialEmail(text) {
   const subject = src.split('\n', 1)[0] ?? '';
   const count = (list, s) => list.reduce((n, re) => n + (re.test(s) ? 1 : 0), 0);
   const subjectConfirm = count(CONFIRM_SIGNALS, subject);
-  const subjectPromo = count(PROMO_SIGNALS, subject);
+  const subjectPromo = count(PROMO_SIGNALS, subject) + count(SUBJECT_ONLY_PROMO, subject);
   const confirm = count(CONFIRM_SIGNALS, src) + subjectConfirm;
   const promo = count(PROMO_SIGNALS, src) + subjectPromo;
   let kind;

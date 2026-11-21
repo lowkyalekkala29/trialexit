@@ -248,12 +248,14 @@ async function runMailScan({ provider = null, account = null, interactive = fals
   const ownName = settings.name || got.session?.user?.name || '';
   const fresh = [];
   let scannedTotal = 0;
+  const report = [];
   for (const acc of targets) {
     try {
       const common = { interactive, directory: await getDirectory(), trials: await getTrials(), seen };
-      const { candidates, scanned } =
+      const { candidates, scanned, report: rep } =
         acc.provider === 'gmail' ? await scanGmailAccount(acc, { ...common, ownName }) : await scanMailbox('outlook', common);
       scannedTotal += scanned ?? 0;
+      report.push(...(rep ?? []));
       const known = new Set([...existing, ...fresh].map((c) => (c.serviceId ?? c.serviceName).toLowerCase()));
       fresh.push(...candidates.filter((c) => !known.has((c.serviceId ?? c.serviceName).toLowerCase())));
       delete errors[acc.email];
@@ -272,7 +274,11 @@ async function runMailScan({ provider = null, account = null, interactive = fals
     mailLastScan: new Date().toISOString(),
     mailErrors: errors,
   };
-  await chrome.storage.local.set({ mailCandidates: [...existing, ...fresh], settings });
+  await chrome.storage.local.set({
+    mailCandidates: [...existing, ...fresh],
+    settings,
+    ...(report.length || targets.length ? { mailScanReport: { at: new Date().toISOString(), entries: report.slice(0, 150) } } : {}),
+  });
   if (accounts.length) await chrome.alarms.create(MAIL_ALARM, { periodInMinutes: 6 * 60 });
   if (!interactive && fresh.length) {
     await chrome.notifications.create('mail-found', {

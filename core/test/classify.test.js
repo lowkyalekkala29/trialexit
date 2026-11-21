@@ -94,3 +94,7 @@ test('membership and app store confirmations count', () => {
 test('"subscribe now and save" stays an ad', () => {
   assert.equal(classifyTrialEmail(mail('Subscribe now and save 50%', 'Limited time: Premium at just ₹99. Offer ends soon.')).kind, 'promo');
 });
+
+test('"offer" in the body of a real confirmation is not an ad', () => {
+  assert.equal(classifyTrialEmail(mail('Your TestRail trial is ready', 'Your 30-day trial expires on 21 Dec. TestRail offers test case management; we also offer free onboarding sessions.')).kind, 'confirmation');
+});

@@ -154,6 +154,7 @@ export async function scanGmailWeb({ interactive, addAccount = false, account = 
     const fresh = [];
     const needsTap = [];
     let scannedTotal = 0;
+    const report = [];
     for (const acc of targets) {
       let token = live(acc.email);
       if (!token && interactive && !popupUsed) {
@@ -172,13 +173,14 @@ export async function scanGmailWeb({ interactive, addAccount = false, account = 
         continue;
       }
       try {
-        const { candidates, scanned } = await collectCandidates('gmail', messages(acc.email, token, seen, directory), {
+        const { candidates, scanned, report: rep } = await collectCandidates('gmail', messages(acc.email, token, seen, directory), {
           directory,
           trials,
           ownEmail: acc.email,
           ownName,
         });
         scannedTotal += scanned;
+        report.push(...rep);
         const known = new Set([...existing, ...fresh].map((c) => (c.serviceId ?? c.serviceName).toLowerCase()));
         fresh.push(...candidates.filter((c) => !known.has((c.serviceId ?? c.serviceName).toLowerCase())).map((c) => ({ ...c, account: acc.email })));
         delete errors[acc.email];
@@ -190,6 +192,7 @@ export async function scanGmailWeb({ interactive, addAccount = false, account = 
     accounts = accounts.map((a) => targets.find((t) => t.email === a.email) ?? a);
     const latest = (await chrome.storage.local.get('settings')).settings ?? {};
     await chrome.storage.local.set({
+      mailScanReport: { at: new Date().toISOString(), entries: report.slice(0, 150) },
       mailCandidates: [...existing, ...fresh],
       settings: {
         ...latest,

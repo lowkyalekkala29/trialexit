@@ -31,42 +31,38 @@ const addressOf = (from) => (String(from ?? '').match(/<([^>]+)>/)?.[1] ?? Strin
  * @param {AsyncIterable<{id:string,subject:string,from:string,date:string,text:string}>} messages
  * @param {{ directory: any[], trials: any[], ownEmail?: string|null, ownName?: string|null }} opts
  */
+/** Plain-language reasons shown in "What did the scan check?". */
+export const VERDICTS = {
+  found: 'Found — ready to track',
+  'from-you': 'Sent by you',
+  ad: 'Looks like an ad',
+  'no-signal': 'No sign you started a trial',
+  'no-details': 'No service or date we could read',
+  ended: 'Trial already ended',
+  'too-far': 'Renewal too far away to be a trial',
+  'person-name': 'Sender is a person, not a service',
+  tracked: 'Already tracking this',
+  duplicate: 'Same service as another email',
+};
+
 export async function collectCandidates(provider, messages, { directory, trials, ownEmail = null, ownName = null }) {
   const found = new Map();
+  /** Every email checked, with the reason it was kept or skipped (stays on the device). */
+  const report = [];
   let scanned = 0;
   const me = String(ownEmail ?? '').toLowerCase();
   const myName = String(ownName ?? '').trim().toLowerCase();
   for await (const mail of messages) {
     scanned++;
-    // Emails the user sent or forwarded to themselves are not trial confirmations.
-    if (me && addressOf(mail.from) === me) continue;
-    // Only emails confirming a trial the user started — not "Try Premium free" ads.
-    const { kind } = classifyTrialEmail(mail.text);
-    if (kind === 'promo') continue;
-    // Count trial length from the day the email arrived, not from today.
     const received = mail.date ? new Date(mail.date) : new Date();
     const parsed = parseTrialEmail(mail.text, directory, received);
-    if (kind === 'unknown' && !parsed.renewalMatched) continue;
-    if (!parsed.entry && !parsed.renewalMatched && !parsed.days) continue;
-    if (parsed.renewsOn && Date.parse(parsed.renewsOn) < Date.now() - 3 * 864e5) continue;
-    if (parsed.renewsOn && Date.parse(parsed.renewsOn) - received.getTime() > MAX_TRIAL_AHEAD_DAYS * 864e5) continue;
     const name = parsed.serviceName ?? senderName(mail.from);
-    // A person's name (e.g. the user's own) is never a service.
-    if (!parsed.entry && myName && String(name).trim().toLowerCase() === myName) continue;
-    const tracked = trials.some(
-      (t) =>
-        (t.serviceId === parsed.entry?.serviceId || t.serviceName.toLowerCase() === String(name).toLowerCase()) &&
-        ['active', 'awaiting_confirmation'].includes(t.status),
-    );
-    if (tracked) continue;
-    const key = (parsed.entry?.serviceId ?? name).toLowerCase();
-    if (found.has(key)) continue; // newest email first; keep it
-    found.set(key, {
-      v: CANDIDATE_VERSION,
+    const entry = {
       messageId: `${provider}:${mail.id}`,
       provider,
-      from: mail.from,
+      account: ownEmail ?? null,
       subject: mail.subject,
+      from: mail.from,
       receivedAt: mail.date,
       serviceId: parsed.entry?.serviceId ?? null,
       region: parsed.entry?.region ?? null,
@@ -76,8 +72,34 @@ export async function collectCandidates(provider, messages, { directory, trials,
       amount: parsed.price?.amount ?? null,
       currency: parsed.price?.currency ?? null,
       trialLengthDays: parsed.days?.days ?? null,
-    });
+      verdict: 'found',
+    };
+    report.push(entry);
+    const skip = (why) => {
+      entry.verdict = why;
+    };
+    // Emails the user sent or forwarded to themselves are not trial confirmations.
+    if (me && addressOf(mail.from) === me) { skip('from-you'); continue; }
+    // Only emails confirming a trial the user started — not "Try Premium free" ads.
+    const { kind } = classifyTrialEmail(mail.text);
+    if (kind === 'promo') { skip('ad'); continue; }
+    if (kind === 'unknown' && !parsed.renewalMatched) { skip('no-signal'); continue; }
+    if (!parsed.entry && !parsed.renewalMatched && !parsed.days) { skip('no-details'); continue; }
+    if (parsed.renewsOn && Date.parse(parsed.renewsOn) < Date.now() - 3 * 864e5) { skip('ended'); continue; }
+    if (parsed.renewsOn && Date.parse(parsed.renewsOn) - received.getTime() > MAX_TRIAL_AHEAD_DAYS * 864e5) { skip('too-far'); continue; }
+    // A person's name (e.g. the user's own) is never a service.
+    if (!parsed.entry && myName && String(name).trim().toLowerCase() === myName) { skip('person-name'); continue; }
+    const tracked = trials.some(
+      (t) =>
+        (t.serviceId === parsed.entry?.serviceId || t.serviceName.toLowerCase() === String(name).toLowerCase()) &&
+        ['active', 'awaiting_confirmation'].includes(t.status),
+    );
+    if (tracked) { skip('tracked'); continue; }
+    const key = (parsed.entry?.serviceId ?? name).toLowerCase();
+    if (found.has(key)) { skip('duplicate'); continue; } // newest email first; keep it
+    const { verdict, account, ...candidate } = entry;
+    found.set(key, { v: CANDIDATE_VERSION, ...candidate });
   }
-  return { candidates: [...found.values()], scanned };
+  return { candidates: [...found.values()], scanned, report };
 }
 

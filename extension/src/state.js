@@ -22,7 +22,7 @@ export const state = {
   /** @type {'pick'|'paste'|'manual'} */ addTab: 'pick',
   quick: /** @type {{serviceId: string|null, when: number|string}} */ ({ serviceId: null, when: 7 }),
   ob: { picked: /** @type {string[]} */ ([]), when: /** @type {Record<string, number|string>} */ ({}) },
-  mail: { candidates: /** @type {any[]} */ ([]), busy: /** @type {any} */ (false), error: '' },
+  mail: { candidates: /** @type {any[]} */ ([]), busy: /** @type {any} */ (false), error: '', report: /** @type {any} */ (null) },
   auth: { email: '', stage: /** @type {'start'|'code'} */ ('start'), busy: false, error: '', mode: /** @type {'signup'|'signin'} */ ('signup') },
   filter: { status: 'open', q: '' },
   lastSync: /** @type {string|null} */ (null),

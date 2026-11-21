@@ -16,7 +16,7 @@ import { EXTENSION_ID } from './config.js';
 import { pullProfile, pushProfile, syncTrials, PROFILE_FIELDS } from './cloud.js';
 import { authHtml, authActions, mountGoogleButton } from './view-auth.js';
 import { onboardingHtml, onboardingActions } from './view-onboarding.js';
-import { dashboardHtml, trialsHtml, addModalHtml, mailHtml, homeActions } from './view-home.js';
+import { dashboardHtml, trialsHtml, addModalHtml, mailHtml, homeActions, scanReportHtml } from './view-home.js';
 import { savingsHtml, settingsHtml, helpHtml, accountActions } from './view-account.js';
 import { bucket, newTrial, deviceZone } from './state.js';
 import { scanGmailWeb, disconnectGmailWeb, hasLiveGmailToken, loadGis } from './web-mail.js';
@@ -125,6 +125,7 @@ function render() {
     : r.path === '/savings' ? savingsHtml()
     : r.path === '/settings' ? settingsHtml(r.sub || 'profile')
     : r.path === '/help' ? helpHtml()
+    : r.path === '/scan-report' ? scanReportHtml()
     : dashboardHtml();
   document.title = `${{ '/trials': 'Trials', '/savings': 'Savings', '/settings': 'Settings', '/help': 'Help' }[r.path] ?? 'Dashboard'} — TrialExit`;
   const u = state.session?.user;
@@ -404,8 +405,9 @@ async function mailCall(type, provider = null, account = null, { auto = false } 
     ? await webMail(type, provider ?? 'gmail', { interactive: !auto, account })
     : await chrome.runtime.sendMessage({ type, provider, account }).catch((err) => ({ ok: false, reason: err?.message }));
   state.mail.busy = false;
-  const got = await chrome.storage.local.get(['mailCandidates', 'settings']);
+  const got = await chrome.storage.local.get(['mailCandidates', 'settings', 'mailScanReport']);
   state.mail.candidates = got.mailCandidates ?? [];
+  state.mail.report = got.mailScanReport ?? null;
   state.settings = { ...state.settings, ...pickWorkerFields(got.settings) };
   if (!res?.ok) state.mail.error = mailError(provider ?? 'gmail', res?.reason);
   else if (res.found !== undefined && !auto) {
@@ -417,7 +419,7 @@ async function mailCall(type, provider = null, account = null, { auto = false } 
         : checked
           ? `Checked ${checked} trial-related email${checked > 1 ? 's' : ''} — none look like a trial you started.`
           : 'No new trials found in your email.';
-    toast((res.found ? `Found ${res.found} trial${res.found > 1 ? 's' : ''} in your email.` : none) + tap);
+    toast((res.found ? `Found ${res.found} trial${res.found > 1 ? 's' : ''} in your email.` : `${none} See "What did it check?" for details.`) + tap);
   }
   render();
   return res;
@@ -566,6 +568,7 @@ chrome.storage.onChanged?.addListener((changes, area) => {
   }
   if (changes.settings?.newValue) state.settings = { ...state.settings, ...pickWorkerFields(changes.settings.newValue) };
   if (changes.mailCandidates) state.mail.candidates = changes.mailCandidates.newValue ?? [];
+  if (changes.mailScanReport) state.mail.report = changes.mailScanReport.newValue ?? null;
   if (changes.trials && JSON.stringify(changes.trials.newValue) !== JSON.stringify(state.trials)) {
     state.trials = changes.trials.newValue ?? [];
     clearTimeout(syncTimer);
@@ -577,7 +580,8 @@ chrome.storage.onChanged?.addListener((changes, area) => {
 /* ------------------------------------------------------------------- boot */
 
 async function boot() {
-  const got = await chrome.storage.local.get(['trials', 'tombstones', 'settings', 'pendingSeed', 'bundledDirectory', 'mailCandidates', 'mutedHosts', 'lastSync']);
+  const got = await chrome.storage.local.get(['trials', 'tombstones', 'settings', 'pendingSeed', 'bundledDirectory', 'mailCandidates', 'mutedHosts', 'lastSync', 'mailScanReport']);
+  state.mail.report = got.mailScanReport ?? null;
   state.trials = Array.isArray(got.trials) ? got.trials : [];
   state.tombstones = Array.isArray(got.tombstones) ? got.tombstones : [];
   state.settings = { ...DEFAULT_SETTINGS, ...(got.settings ?? {}) };

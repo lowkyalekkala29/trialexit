@@ -446,3 +446,5 @@ input.switch:focus { outline: 3px solid #16a34a33; }
 .banner.install { background: var(--surface); border-color: #bbf7d0; color: var(--text); }
 .banner.install .actions { flex-wrap: nowrap; }
 .ios-share { display: inline-grid; place-items: center; width: 22px; height: 22px; border: 1px solid var(--line-strong); border-radius: 6px; font-size: 13px; vertical-align: -4px; }
+.row-item.report .grow { gap: 3px; }
+.row-item.report .grow b { font-size: 14px; }

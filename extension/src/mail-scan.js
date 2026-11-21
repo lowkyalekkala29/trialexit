@@ -169,13 +169,13 @@ async function* gmailMessages(account, interactive, seen, directory = []) {
 
 /** Scan one Gmail account; suggestions are tagged with the inbox they came from. */
 export async function scanGmailAccount(account, { interactive, directory, trials, seen, ownName }) {
-  const { candidates, scanned } = await collectCandidates('gmail', gmailMessages(account, interactive, seen, directory), {
+  const { candidates, scanned, report } = await collectCandidates('gmail', gmailMessages(account, interactive, seen, directory), {
     directory,
     trials,
     ownEmail: account.email,
     ownName,
   });
-  return { candidates: candidates.map((c) => ({ ...c, account: account.email })), scanned };
+  return { candidates: candidates.map((c) => ({ ...c, account: account.email })), scanned, report };
 }
 
 export async function disconnectGmailAccount(account) {

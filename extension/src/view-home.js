@@ -136,6 +136,40 @@ export function dashboardHtml() {
     ${!empty && !attention.length && !upcoming.length ? '<div class="empty">All clear — no open trials. <a href="#/savings">See what you saved →</a></div>' : ''}`;
 }
 
+/** "What did the scan check?" — every email the last scan looked at, and why. */
+export function scanReportHtml() {
+  const rep = state.mail.report;
+  const entries = rep?.entries ?? [];
+  const VERD = {
+    found: ['Found — ready to track', 'ok'],
+    'from-you': ['Sent by you', ''],
+    ad: ['Looks like an ad', 'warn'],
+    'no-signal': ['No sign you started a trial', ''],
+    'no-details': ["Couldn't read a service or date", ''],
+    ended: ['Trial already ended', ''],
+    'too-far': ['Renewal too far away for a trial', ''],
+    'person-name': 'Sender is a person, not a service',
+    tracked: ['Already tracking it', 'ok'],
+    duplicate: ['Same service as another email', ''],
+  };
+  const rows = entries
+    .map((e, i) => {
+      const [label, cls] = Array.isArray(VERD[e.verdict]) ? VERD[e.verdict] : [VERD[e.verdict] ?? e.verdict, ''];
+      const canTrack = e.verdict !== 'found' && e.verdict !== 'tracked';
+      return `<li class="row-item report">${logoHtml(e.serviceId ?? '', e.serviceName || '?', 'sm')}
+        <span class="grow"><b>${esc(e.subject || '(no subject)')}</b><span class="hint">${esc(e.from)}${e.account ? ` · ${esc(e.account)}` : ''}</span>
+          <span><span class="pill ${cls}">${esc(label)}</span>${e.renewsOn ? ` <span class="hint">ends ${esc(e.renewsOn)}</span>` : ''}</span></span>
+        ${canTrack ? `<button class="sm" data-act="report-track" data-i="${i}">Track anyway</button>` : ''}</li>`;
+    })
+    .join('');
+  return `<div class="page-head"><div><h1>What the scan checked</h1><p class="lede">${
+    rep ? `Last scan ${esc(ago(rep.at))}: ${entries.length} trial-related email${entries.length === 1 ? '' : 's'}. Read on this device only.` : 'No scan yet.'
+  }</p></div>
+    <div class="actions"><button data-act="report-recheck">Re-check dismissed emails</button><button class="primary" data-act="mail-rescan">Scan again</button></div></div>
+    ${entries.length ? `<ul class="rows">${rows}</ul>` : `<div class="empty">${rep ? "Gmail didn't return any trial-related emails from the last 60 days. If you just started a trial, wait a minute for the email to arrive and scan again — or paste the email via <b>+ Add trial → Paste email</b>." : 'Press <b>Scan again</b> to check your inbox.'}</div>`}
+    <p class="hint" style="margin-top:14px">Missed a trial? Press <b>Track anyway</b> next to its email — and tell us the subject line so we can teach the scanner.</p>`;
+}
+
 /** Connected inboxes with per-inbox scan / remove, plus "Add another Gmail". */
 export function inboxesHtml({ compact = false } = {}) {
   const accounts = state.settings.mailAccounts ?? [];
@@ -156,7 +190,8 @@ export function inboxesHtml({ compact = false } = {}) {
   const add = accounts.some((a) => a.provider === 'gmail')
     ? `<button class="${compact ? 'sm' : ''}" data-act="mail-add-account" data-provider="gmail" ${busy ? 'disabled' : ''}>+ Add another Gmail</button>`
     : `<button class="primary ${compact ? 'sm' : ''}" data-act="mail-connect" data-provider="gmail" ${busy ? 'disabled' : ''}>${busy ? 'Scanning…' : 'Connect Gmail'}</button>`;
-  return `<div class="settings-list inboxes">${rows}</div><div class="actions" style="margin-top:10px">${add}</div>
+  const report = state.mail.report ? `<a class="btn sm ghost" href="#/scan-report">What did the last scan check?</a>` : '';
+  return `<div class="settings-list inboxes">${rows}</div><div class="actions" style="margin-top:10px">${add}${report}</div>
     ${state.mail.error ? `<p class="error">${esc(state.mail.error)}</p>` : ''}`;
 }
 
@@ -176,7 +211,7 @@ function scanStatusHtml() {
   const stale = Date.now() - (Date.parse(last ?? '') || 0) > 6 * 3_600_000;
   const n = (state.settings.mailAccounts ?? []).length;
   const what = n > 1 ? `${n} inboxes` : 'Gmail';
-  if (!stale) return `<p class="hint scan-line">✓ ${what} checked ${esc(ago(last))} · next check in about 6 hours · <button class="link" data-act="mail-rescan">Scan now</button> · <a href="#/settings/sources">Manage inboxes</a></p>`;
+  if (!stale) return `<p class="hint scan-line">✓ ${what} checked ${esc(ago(last))} · next check in about 6 hours · <button class="link" data-act="mail-rescan">Scan now</button> · <a href="#/scan-report">What did it check?</a> · <a href="#/settings/sources">Manage inboxes</a></p>`;
   return `<div class="banner scan-cta"><div><b>Check for new trials.</b> Your ${n > 1 ? 'inboxes were' : 'Gmail was'} last checked ${esc(ago(last))}.</div>
     <button class="primary" data-act="mail-rescan" ${state.mail.busy ? 'disabled' : ''}>${state.mail.busy ? 'Scanning…' : 'Scan now'}</button></div>`;
 }
@@ -216,7 +251,7 @@ export function trialsHtml() {
   return `<div class="page-head"><div><h1>Trials</h1><p class="lede">Everything you're tracking, most urgent first.</p></div>
       <div class="actions"><button data-act="mail-connect" data-provider="gmail" ${state.mail.busy ? 'disabled' : ''}>📧 ${state.mail.busy ? 'Scanning…' : 'Scan Gmail'}</button><button data-act="ics-all">📅 Export calendar</button><button class="primary" data-act="add-open">+ Add trial</button></div></div>
     ${state.mail.error ? `<p class="error">${esc(state.mail.error)}</p>` : ''}
-    ${state.mail.candidates.length ? `<p class="banner">Found ${state.mail.candidates.length} possible trial${state.mail.candidates.length > 1 ? 's' : ''} in your email — <a href="#/">review on the dashboard</a>.</p>` : ''}
+    ${state.mail.candidates.length ? `<p class="banner">Found ${state.mail.candidates.length} possible trial${state.mail.candidates.length > 1 ? 's' : ''} in your email — <a href="#/">review on the dashboard</a>.</p>` : state.mail.report ? `<p class="hint">Last email scan: ${state.mail.report.entries.length} trial-related emails checked · <a href="#/scan-report">See what it checked</a></p>` : ''}
     <div class="toolbar">
       <div class="tabs" role="tablist">${tab('open', 'Open')}${tab('soon', 'Ending soon')}${tab('resolved', 'Resolved')}${tab('all', 'All')}</div>
       <input type="search" id="trial-search" placeholder="Search trials" value="${esc(f.q)}" aria-label="Search trials" />
@@ -401,6 +436,27 @@ export function homeActions(go, persist, toast) {
       await persist();
       go(null);
       toast(`Tracking ${t.serviceName}. We'll nudge you before it charges.`);
+    },
+    'report-track': (el) => {
+      const e = state.mail.report?.entries?.[Number(el.dataset.i)];
+      if (!e) return;
+      state.seed = {
+        serviceId: e.serviceId,
+        region: e.region,
+        serviceName: e.serviceName ?? '',
+        amount: e.amount,
+        currency: e.currency,
+        trialLengthDays: e.trialLengthDays,
+        renewsAt: e.renewsOn ? zonedWallTimeToInstant(e.renewsOn, '00:00', deviceZone).toISOString() : null,
+        source: e.account ? `gmail:${e.account}` : 'gmail',
+        note: `From your email “${e.subject}”. Check the service, date and price, then save.`,
+      };
+      state.addOpen = true;
+      go(null);
+    },
+    'report-recheck': async () => {
+      await chrome.storage.local.set({ mailSeen: [] });
+      toast('Dismissed emails will be checked again on the next scan.');
     },
     'parse-email': () => {
       const r = parseTrialEmail(/** @type {HTMLTextAreaElement} */ (document.getElementById('paste-text')).value, state.directory);
