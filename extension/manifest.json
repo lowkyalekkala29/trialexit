@@ -66,7 +66,7 @@
   "oauth2": {
     "client_id": "REPLACE_WITH_CLIENT_ID.apps.googleusercontent.com",
     "scopes": [
-      "https://www.googleapis.com/auth/gmail.readonly"
+      "https://www.googleapis.com/auth/gmail.messages.readonly"
     ]
   },
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArfZ5twjUaFPbGgUgM+H7X2SnZquvK7Cmo1FM+oTKCCYu2N/0/K0nmL5Uq5fiaD0i9bNNr6Sj3uaWzNJDNI1jogDQ702VYJinT0hMkQ/J2VBCef7mncQ/m31af6NSLMJ4Amva/7yRdRHpOWKNPjW3wD6fK82hq7U6nUnWGHqaSUGyZvkfyo+1Bo7gS98XiBRX/50qapirUAAuUgYKdvd9QQaaMNYzpwHVj3Blh5msCG2TiTVhJj3aBjsvuymTVh9PSFg95TTG7tWi3MbTl2W5Lb+3/MEDoIDxAa7S6weVw7Bsd0kesgMOdh6IH61FitPr4zTn/ZftEni99J3awqao9QIDAQAB",

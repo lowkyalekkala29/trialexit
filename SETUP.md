@@ -58,7 +58,7 @@ clients are tied to that ID.
 2. **APIs & Services → Library** → enable **Gmail API**.
 3. **OAuth consent screen** → External → app name TrialExit, your support email,
    app homepage = your site, privacy policy = the PRIVACY.md URL.
-   - Scopes → add `https://www.googleapis.com/auth/gmail.readonly`.
+   - Scopes → add `https://www.googleapis.com/auth/gmail.messages.readonly`.
    - Publishing status: leave as **Testing**.
    - **Test users → add the Gmail address of each of your first users** (max 100).
      Testing mode needs no Google review. That covers the first 20 users.

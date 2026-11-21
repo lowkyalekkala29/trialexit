@@ -12,7 +12,7 @@ import { GOOGLE_CLIENT_ID } from './config.js';
 import { GMAIL_QUERY, messageToText } from './core/mail.js';
 import { collectCandidates } from './mail-candidates.js';
 
-const SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
+const SCOPE = 'https://www.googleapis.com/auth/gmail.messages.readonly';
 const TOKEN_KEY = 'trialexit:gmail-token';
 const MAX_MESSAGES = 40;
 

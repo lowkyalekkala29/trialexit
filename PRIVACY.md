@@ -34,7 +34,7 @@ after 14 days. Turn email reminders off any time in Settings → Notifications.
 ## Email access (optional, Gmail and Outlook)
 
 If — and only if — you press **Scan my Gmail** (web app or extension) or **Connect Outlook** (extension),
-TrialExit asks for **read-only** access to your mailbox (`gmail.readonly` / Microsoft Graph `Mail.Read`).
+TrialExit asks for **read-only** access to your mailbox (`gmail.messages.readonly` / Microsoft Graph `Mail.Read`).
 Signing in never includes this — it is a separate choice. TrialExit uses that access for one purpose:
 finding emails that confirm a free trial or subscription, so they can be offered to you as trials to track.
 
