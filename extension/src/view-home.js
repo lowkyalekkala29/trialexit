@@ -26,6 +26,14 @@ function countdownHtml(t, st, band) {
   return `<span class="count ${cls}">${formatCountdown(msUntil(t.renewsAt))}<small>left</small></span>`;
 }
 
+/** 'checkout' | 'gmail' | 'gmail:work@x.com' | 'email' → human label */
+function sourceLabel(src) {
+  if (src === 'checkout') return 'checkout';
+  if (src === 'email') return 'pasted email';
+  const [prov, account] = String(src).split(':');
+  return account || PROVIDER_LABEL[prov] || src;
+}
+
 export function cardHtml(t) {
   const st = derivedStatus(t);
   const resolved = bucket(t) === 'resolved';
@@ -38,7 +46,7 @@ export function cardHtml(t) {
     t.status === 'charged' ? '<span class="pill crit">charged</span>' : '',
     entry && entry.verified === false && !resolved ? '<span class="pill" title="Not verified against the live site recently">link unverified</span>' : '',
     entry?.requiresChat && !resolved ? '<span class="pill warn">cancel via chat</span>' : '',
-    t.source && t.source !== 'manual' && t.source !== 'picker' ? `<span class="pill">from ${esc(t.source === 'checkout' ? 'checkout' : PROVIDER_LABEL[t.source] ?? t.source)}</span>` : '',
+    t.source && t.source !== 'manual' && t.source !== 'picker' ? `<span class="pill">from ${esc(sourceLabel(t.source))}</span>` : '',
   ].join('');
   const amountText = t.amount ? `<span class="amount">${formatMoney(t.amount, t.currency)}</span>` : 'Amount not set';
 
@@ -128,6 +136,30 @@ export function dashboardHtml() {
     ${!empty && !attention.length && !upcoming.length ? '<div class="empty">All clear — no open trials. <a href="#/savings">See what you saved →</a></div>' : ''}`;
 }
 
+/** Connected inboxes with per-inbox scan / remove, plus "Add another Gmail". */
+export function inboxesHtml({ compact = false } = {}) {
+  const accounts = state.settings.mailAccounts ?? [];
+  const errs = state.settings.mailErrors ?? {};
+  const busy = state.mail.busy;
+  const rows = accounts
+    .map((a) => {
+      const err = errs[a.email];
+      const label = a.provider === 'gmail' ? 'Gmail' : 'Outlook';
+      const status = err
+        ? `<span class="error" style="font-size:12px">${esc(err === 'expired' || err === 'account-changed' ? 'Needs you to sign in again' : 'Last scan failed')}</span>`
+        : `<span class="hint">${a.lastScan ? `Checked ${esc(ago(a.lastScan))}` : 'Connected'}</span>`;
+      return `<div class="switch-row inbox"><span><b>${esc(a.email)}</b><span class="hint">${label}</span>${status}</span>
+        <span class="actions"><button class="sm" data-act="mail-rescan" data-provider="${a.provider}" data-account="${esc(a.email)}" ${busy ? 'disabled' : ''}>${err ? 'Reconnect' : 'Scan'}</button>
+        <button class="sm ghost" data-act="mail-disconnect" data-provider="${a.provider}" data-account="${esc(a.email)}">Remove</button></span></div>`;
+    })
+    .join('');
+  const add = accounts.some((a) => a.provider === 'gmail')
+    ? `<button class="${compact ? 'sm' : ''}" data-act="mail-add-account" data-provider="gmail" ${busy ? 'disabled' : ''}>+ Add another Gmail</button>`
+    : `<button class="primary ${compact ? 'sm' : ''}" data-act="mail-connect" data-provider="gmail" ${busy ? 'disabled' : ''}>${busy ? 'Scanning…' : 'Connect Gmail'}</button>`;
+  return `<div class="settings-list inboxes">${rows}</div><div class="actions" style="margin-top:10px">${add}</div>
+    ${state.mail.error ? `<p class="error">${esc(state.mail.error)}</p>` : ''}`;
+}
+
 function ago(iso) {
   const ms = Date.now() - (Date.parse(iso ?? '') || 0);
   const h = Math.floor(ms / 3_600_000);
@@ -142,8 +174,10 @@ function ago(iso) {
 function scanStatusHtml() {
   const last = state.settings.mailLastScan;
   const stale = Date.now() - (Date.parse(last ?? '') || 0) > 6 * 3_600_000;
-  if (!stale) return `<p class="hint scan-line">✓ Gmail checked ${esc(ago(last))} · next check in about 6 hours · <button class="link" data-act="mail-rescan">Scan now</button></p>`;
-  return `<div class="banner scan-cta"><div><b>Check for new trials.</b> Your Gmail was last checked ${esc(ago(last))}.</div>
+  const n = (state.settings.mailAccounts ?? []).length;
+  const what = n > 1 ? `${n} inboxes` : 'Gmail';
+  if (!stale) return `<p class="hint scan-line">✓ ${what} checked ${esc(ago(last))} · next check in about 6 hours · <button class="link" data-act="mail-rescan">Scan now</button> · <a href="#/settings/sources">Manage inboxes</a></p>`;
+  return `<div class="banner scan-cta"><div><b>Check for new trials.</b> Your ${n > 1 ? 'inboxes were' : 'Gmail was'} last checked ${esc(ago(last))}.</div>
     <button class="primary" data-act="mail-rescan" ${state.mail.busy ? 'disabled' : ''}>${state.mail.busy ? 'Scanning…' : 'Scan now'}</button></div>`;
 }
 
@@ -203,7 +237,7 @@ export function mailHtml() {
         const mid = esc(c.messageId);
         return `<div class="card flat">
           <div class="card-head">${logoHtml(c.serviceId ?? '', c.serviceName)}
-            <div class="card-title"><span class="card-name">${esc(c.serviceName)}</span><span class="meta">${esc(c.subject)} · ${esc(PROVIDER_LABEL[c.provider] ?? '')}</span></div></div>
+            <div class="card-title"><span class="card-name">${esc(c.serviceName)}</span><span class="meta">${esc(c.subject)} · ${esc(c.account ?? PROVIDER_LABEL[c.provider] ?? '')}</span></div></div>
           <div class="chips"><label class="inline">Ends on <input type="date" data-mail-date="${mid}" value="${esc(c.renewsOn ?? '')}"></label>
             ${c.renewalMatched ? `<span class="hint">read "${esc(c.renewalMatched)}"</span>` : c.renewsOn ? '<span class="hint">guessed from trial length</span>' : '<span class="pill warn">set the date</span>'}
             ${c.amount ? `<span class="pill">${c.currency === 'USD' ? '$' : '₹'}${esc(c.amount)}</span>` : ''}</div>

@@ -142,7 +142,7 @@ function render() {
           <div class="menu"><a href="#/settings/profile">Account settings</a>${u ? '<button data-act="s-signout">Sign out</button>' : '<a href="#/signin">Sign in</a>'}</div></details>
       </div>
     </aside>
-    <main class="content" id="content">${page}</main>
+    <main class="content" id="content">${r.path === '/' ? installBannerHtml() : ''}${page}</main>
     <nav class="tabbar">${NAV.slice(0, 4).map(([href, label, ic]) => `<a href="${href}" class="${active(href) ? 'on' : ''}">${icon(ic)}<span>${label}</span></a>`).join('')}</nav>
   </div>${addModalHtml()}`;
   afterRender();
@@ -164,6 +164,46 @@ function go(path, opts = {}) {
   if (opts.keepFocus) pendingFocus = opts.keepFocus;
   if (path && path !== location.hash) location.hash = path;
   else render();
+}
+
+/* --------------------------------------------------------- install the app */
+
+const install = { prompt: /** @type {any} */ (null) };
+const isStandalone = () =>
+  matchMedia('(display-mode: standalone)').matches || /** @type {any} */ (navigator).standalone === true;
+const isIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const INSTALL_DISMISS = 'trialexit:install-dismissed';
+
+if (IS_WEB) {
+  addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault(); // show our own button instead of Chrome's mini-bar
+    install.prompt = e;
+    if (document.querySelector('.content')) render();
+  });
+  addEventListener('appinstalled', () => {
+    install.prompt = null;
+    toast('TrialExit is on your home screen.');
+    render();
+  });
+}
+
+/** "Install the app" banner: Android/desktop → real prompt; iPhone → two taps to follow. */
+export function installBannerHtml() {
+  if (!IS_WEB || isStandalone()) return '';
+  try {
+    if (Date.now() - Number(localStorage.getItem(INSTALL_DISMISS) ?? 0) < 14 * 864e5) return '';
+  } catch {
+    /* ignore */
+  }
+  if (install.prompt) {
+    return `<div class="banner install"><div><b>Install the TrialExit app.</b> One tap from your home screen, opens full-screen.</div>
+      <div class="actions"><button class="primary" data-act="install-app">Install app</button><button class="ghost" data-act="install-dismiss" aria-label="Not now">✕</button></div></div>`;
+  }
+  if (isIOS()) {
+    return `<div class="banner install"><div><b>Add TrialExit to your home screen.</b> Tap <span class="ios-share" aria-label="Share">⬆︎</span> <b>Share</b> at the bottom of Safari, then <b>Add to Home Screen</b>.</div>
+      <button class="ghost" data-act="install-dismiss" aria-label="Not now">✕</button></div>`;
+  }
+  return '';
 }
 
 /* ------------------------------------------------------------ persistence */
@@ -292,6 +332,7 @@ function mailError(provider, reason) {
   if (r === 'scope-not-granted') return `Google didn't give read access to your ${name}. Press Scan ${name} again and, in Google's window, keep "View your email messages and settings" ticked.`;
   if (r === 'gmail-api-disabled') return "Gmail scanning isn't switched on yet on our side (Gmail API disabled). We're on it — try again soon, or paste the email meanwhile.";
   if (r === 'popup-blocked') return `Your browser blocked Google's window. Allow pop-ups for trialexit.vercel.app (icon at the right of the address bar), then press Scan ${name} again.`;
+  if (r === 'account-changed') return `That's a different Google account. Use "Add another Gmail" to connect it.`;
   if (r === 'needs-consent') return `Press Scan ${name} to allow read-only access again.`;
   if (r === 'google-unavailable') return "Couldn't load Google's sign-in. Check your connection or ad-blocker, then try again.";
   if (r === 'expired') return `${name} sign-in expired — connect again.`;
@@ -300,7 +341,7 @@ function mailError(provider, reason) {
 }
 
 /** Preview mode has no Google: show what a scan result looks like. */
-async function previewScan() {
+async function previewScan(addAccount = false) {
   const day = 864e5;
   const iso = (d) => new Date(Date.now() + d * day).toISOString().slice(0, 10);
   const demo = [
@@ -310,38 +351,67 @@ async function previewScan() {
   const got = await chrome.storage.local.get(['mailCandidates', 'settings']);
   const known = new Set((got.mailCandidates ?? []).map((c) => c.messageId));
   const fresh = demo.filter((c) => !known.has(c.messageId) && !state.trials.some((t) => t.serviceId === c.serviceId));
-  await chrome.storage.local.set({ mailCandidates: [...(got.mailCandidates ?? []), ...fresh], settings: { ...(got.settings ?? {}), mailConnected: { ...(got.settings?.mailConnected ?? {}), gmail: true }, mailLastScan: new Date().toISOString() } });
+  const prev = got.settings ?? {};
+  const accounts = prev.mailAccounts ?? [];
+  const email = accounts.some((a) => a.email === 'you@gmail.com') && addAccount ? 'work@company.com' : 'you@gmail.com';
+  const mailAccounts = accounts.some((a) => a.email === email) ? accounts : [...accounts, { provider: 'gmail', email, via: 'web', lastScan: new Date().toISOString() }];
+  await chrome.storage.local.set({
+    mailCandidates: [...(got.mailCandidates ?? []), ...fresh.map((c) => ({ ...c, account: email }))],
+    settings: { ...prev, mailAccounts, mailConnected: { ...(prev.mailConnected ?? {}), gmail: true }, mailLastScan: new Date().toISOString() },
+  });
   return { ok: true, found: fresh.length };
 }
 
-async function webMail(type, provider, interactive) {
+async function webMail(type, provider, { interactive, account }) {
   if (provider && provider !== 'gmail') return { ok: false, reason: 'outlook-web' };
   if (type === 'mail-disconnect') {
-    await disconnectGmailWeb();
+    if (!CLOUD_ENABLED) {
+      const got = await chrome.storage.local.get('settings');
+      const left = (got.settings?.mailAccounts ?? []).filter((a) => a.email !== account);
+      await chrome.storage.local.set({ settings: { ...got.settings, mailAccounts: left, mailConnected: { gmail: left.length > 0 } } });
+      return { ok: true };
+    }
+    await disconnectGmailWeb(account);
     return { ok: true };
   }
-  if (!CLOUD_ENABLED) return previewScan();
-  return scanGmailWeb({ interactive, hint: state.session?.user?.email, directory: state.directory, trials: state.trials });
+  if (!CLOUD_ENABLED) return previewScan(type === 'mail-add-account');
+  return scanGmailWeb({
+    interactive,
+    addAccount: type === 'mail-add-account',
+    account,
+    hint: state.session?.user?.email,
+    directory: state.directory,
+    trials: state.trials,
+  });
 }
 
-async function mailCall(type, provider = null) {
+/**
+ * @param {string} type mail-connect | mail-add-account | mail-rescan | mail-disconnect
+ * @param {string|null} provider
+ * @param {string|null} account  one inbox, or all when null
+ * @param {{ auto?: boolean }} opts  auto = not from a click (never opens Google's window)
+ */
+async function mailCall(type, provider = null, account = null, { auto = false } = {}) {
   state.mail.busy = provider ?? true;
   state.mail.error = '';
   if (!IS_WEB) render();
-  else
+  else if (!auto)
     document.querySelectorAll(`[data-act="${type}"]`).forEach((b) => {
       /** @type {HTMLButtonElement} */ (b).disabled = true;
       b.textContent = 'Waiting for Google…';
     });
   const res = IS_WEB
-    ? await webMail(type, provider ?? 'gmail', type !== 'mail-rescan' || !hasLiveGmailToken())
-    : await chrome.runtime.sendMessage({ type, provider }).catch((err) => ({ ok: false, reason: err?.message }));
+    ? await webMail(type, provider ?? 'gmail', { interactive: !auto, account })
+    : await chrome.runtime.sendMessage({ type, provider, account }).catch((err) => ({ ok: false, reason: err?.message }));
   state.mail.busy = false;
   const got = await chrome.storage.local.get(['mailCandidates', 'settings']);
   state.mail.candidates = got.mailCandidates ?? [];
   state.settings = { ...state.settings, ...pickWorkerFields(got.settings) };
   if (!res?.ok) state.mail.error = mailError(provider ?? 'gmail', res?.reason);
-  else if (res.found !== undefined) toast(res.found ? `Found ${res.found} trial${res.found > 1 ? 's' : ''} in your email.` : 'No new trials found in your email.');
+  else if (res.found !== undefined && !auto) {
+    const tap = res.needsTap?.length ? ` Tap Scan next to ${res.needsTap.join(', ')} to check ${res.needsTap.length > 1 ? 'those inboxes' : 'that inbox'} too.` : '';
+    toast((res.found ? `Found ${res.found} trial${res.found > 1 ? 's' : ''} in your email.` : 'No new trials found in your email.') + tap);
+  }
   render();
   return res;
 }
@@ -357,7 +427,7 @@ async function dismissCandidate(id) {
 }
 
 async function trackCandidate(c, date) {
-  if (!IS_WEB) return chrome.runtime.sendMessage({ type: 'add-trial', trial: { ...c, renewsOn: date, source: c.provider } });
+  if (!IS_WEB) return chrome.runtime.sendMessage({ type: 'add-trial', trial: { ...c, renewsOn: date, source: c.account ? `${c.provider}:${c.account}` : c.provider } });
   const entry = (c.serviceId && state.directory.find((e) => e.serviceId === c.serviceId)) || null;
   const currency = c.currency ?? (state.settings.region === 'US' ? 'USD' : 'INR');
   const renewsAt = zonedWallTimeToInstant(date, '00:00', state.settings.timezone || deviceZone).toISOString();
@@ -372,17 +442,40 @@ async function trackCandidate(c, date) {
       amount: Math.round((Number(c.amount) || 0) * 100),
       currency,
       trialLengthDays: Number(c.trialLengthDays) || Math.max(1, Math.round((Date.parse(renewsAt) - Date.now()) / 864e5)),
-      source: c.provider,
+      source: c.account ? `${c.provider}:${c.account}` : c.provider,
     }),
   ];
   await persist();
   return { ok: true };
 }
 
+const installActions = {
+  'install-app': async () => {
+    if (!install.prompt) return;
+    install.prompt.prompt();
+    await install.prompt.userChoice.catch(() => null);
+    install.prompt = null;
+    render();
+  },
+  'install-dismiss': () => {
+    try {
+      localStorage.setItem(INSTALL_DISMISS, String(Date.now()));
+    } catch {
+      /* ignore */
+    }
+    render();
+  },
+};
+
 const mailActions = {
-  'mail-connect': (el) => mailCall('mail-connect', el.dataset.provider),
-  'mail-rescan': () => mailCall('mail-rescan'),
-  'mail-disconnect': (el) => mailCall('mail-disconnect', el.dataset.provider),
+  'mail-connect': (el) => mailCall('mail-connect', el.dataset.provider ?? 'gmail'),
+  'mail-add-account': (el) => mailCall('mail-add-account', el.dataset.provider ?? 'gmail'),
+  'mail-rescan': (el) => mailCall('mail-rescan', el.dataset.provider ?? null, el.dataset.account ?? null),
+  'mail-disconnect': (el) => {
+    const who = el.dataset.account ?? el.dataset.provider;
+    if (!confirm(`Remove ${who}? Trials you already track stay; we just stop checking this inbox.`)) return;
+    return mailCall('mail-disconnect', el.dataset.provider ?? 'gmail', el.dataset.account ?? null);
+  },
   'mail-dismiss': async (el) => {
     await dismissCandidate(el.dataset.id);
     state.mail.candidates = state.mail.candidates.filter((c) => c.messageId !== el.dataset.id);
@@ -412,6 +505,7 @@ const ACTIONS = {
   ...homeActions(go, persist, toast),
   ...accountActions(go, persist, toast, onSignedOut),
   ...mailActions,
+  ...installActions,
 };
 
 document.addEventListener('click', (e) => {
@@ -527,7 +621,7 @@ const scanIsDue = () => Date.now() - (Date.parse(state.settings.mailLastScan ?? 
  */
 function autoScanWeb(force = false) {
   if (!IS_WEB || !state.session || state.session.preview || !state.settings.mailConnected?.gmail || state.mail.busy) return;
-  if ((force || scanIsDue()) && hasLiveGmailToken()) mailCall('mail-rescan');
+  if ((force || scanIsDue()) && hasLiveGmailToken()) mailCall('mail-rescan', 'gmail', null, { auto: true });
 }
 setInterval(() => {
   autoScanWeb();

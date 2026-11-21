@@ -67,8 +67,8 @@ export function toast(msg) {
 /** Worker-owned fields: never let a stale tab overwrite them. */
 export function pickWorkerFields(s) {
   if (!s) return {};
-  const { mailConnected, mailLastScan, mailErrors } = s;
-  return { mailConnected, mailLastScan, mailErrors };
+  const { mailConnected, mailLastScan, mailErrors, mailAccounts } = s;
+  return { mailConnected, mailLastScan, mailErrors, mailAccounts };
 }
 
 export async function save() {

@@ -18,7 +18,7 @@ import {
   notificationBody,
 } from './core/alerts.js';
 
-import { scanMailbox, disconnectMailbox, PROVIDERS } from './mail-scan.js';
+import { scanMailbox, disconnectMailbox, PROVIDERS, connectGmail, scanGmailAccount, disconnectGmailAccount } from './mail-scan.js';
 import { decideActivation, pageSignals } from './core/activation.js';
 import { syncTrials, pullProfile } from './cloud.js';
 import { redeemExtensionHandoff, getSession } from './auth.js';
@@ -35,10 +35,10 @@ const SCAN_EVERY_MS = 6 * 60 * 60_000;
  */
 async function scanIfDue() {
   const { settings = {} } = await chrome.storage.local.get('settings');
-  if (!Object.values(settings.mailConnected ?? {}).some(Boolean)) return;
+  if (!Object.values(settings.mailConnected ?? {}).some(Boolean) && !(settings.mailAccounts ?? []).length) return;
   const last = Date.parse(settings.mailLastScan ?? '') || 0;
   if (Date.now() - last < SCAN_EVERY_MS - 5 * 60_000) return;
-  await runMailScan(null, false).catch(() => {});
+  await runMailScan({}).catch(() => {});
 }
 const SNOOZE_PREFIX = 'snooze:';
 const DIGEST_ALARM = 'daily-digest';
@@ -211,42 +211,66 @@ async function handleNotification(notificationId, buttonIndex = 0) {
   }
 }
 
+/** Connected inboxes, migrating the old single-Gmail flag. */
+function accountsOf(settings) {
+  const list = Array.isArray(settings.mailAccounts) ? [...settings.mailAccounts] : [];
+  if (settings.mailConnected?.outlook && !list.some((a) => a.provider === 'outlook')) list.push({ provider: 'outlook', email: 'Outlook' });
+  return list;
+}
+
 /**
- * Scan one mailbox (or every connected one), merge new suggestions into
- * storage, and notify about anything new on background runs.
- * @param {'gmail'|'outlook'|null} provider  null = all connected
- * @param {boolean} interactive
+ * Scan connected inboxes, merge new suggestions into storage, and notify about
+ * anything new on background runs.
+ * @param {{ provider?: 'gmail'|'outlook'|null, account?: string|null, interactive?: boolean, addAccount?: boolean }} opts
  */
-async function runMailScan(provider, interactive) {
-  const got = await chrome.storage.local.get(['mailSeen', 'mailCandidates', 'settings']);
-  const settings = got.settings ?? {};
-  const connected = { ...(settings.mailConnected ?? {}) };
-  const targets = provider ? [provider] : Object.keys(connected).filter((k) => connected[k]);
+async function runMailScan({ provider = null, account = null, interactive = false, addAccount = false } = {}) {
+  const got = await chrome.storage.local.get(['mailSeen', 'mailCandidates', 'settings', 'session']);
+  let settings = got.settings ?? {};
+  let accounts = accountsOf(settings);
+  const errors = { ...(settings.mailErrors ?? {}) };
+
+  // Connecting (first Gmail, or another one) happens interactively, from a click.
+  let targets;
+  if (provider === 'gmail' && (addAccount || !accounts.some((a) => a.provider === 'gmail'))) {
+    const acc = await connectGmail({ addAnother: addAccount });
+    accounts = [...accounts.filter((a) => !(a.provider === 'gmail' && a.email === acc.email)), { ...acc, addedAt: new Date().toISOString() }];
+    targets = [acc];
+  } else if (provider === 'outlook' && !accounts.some((a) => a.provider === 'outlook')) {
+    accounts = [...accounts, { provider: 'outlook', email: 'Outlook' }];
+    targets = accounts.filter((a) => a.provider === 'outlook');
+  } else {
+    targets = accounts.filter((a) => (!provider || a.provider === provider) && (!account || a.email === account));
+  }
+
   const existing = Array.isArray(got.mailCandidates) ? got.mailCandidates : [];
   const seen = new Set([...(got.mailSeen ?? []), ...existing.map((c) => c.messageId)]);
+  const ownName = settings.name || got.session?.user?.name || '';
   const fresh = [];
-  const errors = {};
-  for (const p of targets) {
+  for (const acc of targets) {
     try {
-      const { candidates } = await scanMailbox(/** @type {any} */ (p), {
-        interactive,
-        directory: await getDirectory(),
-        trials: await getTrials(),
-        seen,
-      });
-      const knownServices = new Set([...existing, ...fresh].map((c) => (c.serviceId ?? c.serviceName).toLowerCase()));
-      fresh.push(...candidates.filter((c) => !knownServices.has((c.serviceId ?? c.serviceName).toLowerCase())));
-      connected[p] = true;
+      const common = { interactive, directory: await getDirectory(), trials: await getTrials(), seen };
+      const { candidates } =
+        acc.provider === 'gmail' ? await scanGmailAccount(acc, { ...common, ownName }) : await scanMailbox('outlook', common);
+      const known = new Set([...existing, ...fresh].map((c) => (c.serviceId ?? c.serviceName).toLowerCase()));
+      fresh.push(...candidates.filter((c) => !known.has((c.serviceId ?? c.serviceName).toLowerCase())));
+      delete errors[acc.email];
+      acc.lastScan = new Date().toISOString();
     } catch (err) {
-      errors[p] = String(err?.message ?? err);
+      errors[acc.email] = String(err?.message ?? err);
     }
   }
+  accounts = accounts.map((a) => targets.find((t) => t.provider === a.provider && t.email === a.email) ?? a);
+
   const latest = (await chrome.storage.local.get('settings')).settings ?? {};
-  await chrome.storage.local.set({
-    mailCandidates: [...existing, ...fresh],
-    settings: { ...latest, mailConnected: connected, mailLastScan: new Date().toISOString(), mailErrors: errors },
-  });
-  if (Object.values(connected).some(Boolean)) await chrome.alarms.create(MAIL_ALARM, { periodInMinutes: 6 * 60 });
+  settings = {
+    ...latest,
+    mailAccounts: accounts,
+    mailConnected: { gmail: accounts.some((a) => a.provider === 'gmail'), outlook: accounts.some((a) => a.provider === 'outlook') },
+    mailLastScan: new Date().toISOString(),
+    mailErrors: errors,
+  };
+  await chrome.storage.local.set({ mailCandidates: [...existing, ...fresh], settings });
+  if (accounts.length) await chrome.alarms.create(MAIL_ALARM, { periodInMinutes: 6 * 60 });
   if (!interactive && fresh.length) {
     await chrome.notifications.create('mail-found', {
       type: 'basic',
@@ -256,8 +280,33 @@ async function runMailScan(provider, interactive) {
       priority: 2,
     });
   }
-  if (provider && errors[provider]) return { ok: false, reason: errors[provider] };
-  return { ok: true, found: fresh.length };
+  const failed = targets.length === 1 ? errors[targets[0].email] : null;
+  if (failed) return { ok: false, reason: failed };
+  return { ok: true, found: fresh.length, accounts: targets.length };
+}
+
+async function removeMailAccount(provider, email) {
+  const got = await chrome.storage.local.get(['settings', 'mailCandidates']);
+  const settings = got.settings ?? {};
+  const accounts = accountsOf(settings);
+  const gone = accounts.filter((a) => a.provider === provider && (!email || a.email === email));
+  for (const a of gone) {
+    if (a.provider === 'gmail') await disconnectGmailAccount(a);
+    else await disconnectMailbox('outlook');
+  }
+  const left = accounts.filter((a) => !gone.includes(a));
+  const errors = { ...(settings.mailErrors ?? {}) };
+  for (const a of gone) delete errors[a.email];
+  if (!left.length) await chrome.alarms.clear(MAIL_ALARM);
+  await chrome.storage.local.set({
+    mailCandidates: (got.mailCandidates ?? []).filter((c) => !gone.some((a) => c.provider === a.provider && (!c.account || c.account === a.email))),
+    settings: {
+      ...settings,
+      mailAccounts: left,
+      mailErrors: errors,
+      mailConnected: { gmail: left.some((a) => a.provider === 'gmail'), outlook: left.some((a) => a.provider === 'outlook') },
+    },
+  });
 }
 
 const SYNC_ALARM = 'cloud-sync';
@@ -297,7 +346,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     return;
   }
   if (alarm.name === MAIL_ALARM) {
-    runMailScan(null, false).catch(() => {});
+    runMailScan({}).catch(() => {});
     return;
   }
   if (alarm.name === DIGEST_ALARM) {
@@ -541,7 +590,7 @@ chrome.runtime.onMessageExternal.addListener((msg, sender, sendResponse) => {
       await syncTrials().catch(() => {});
       // Just signed in: look for trials straight away (if a mailbox is connected).
       const { settings: now } = await chrome.storage.local.get('settings');
-      if (Object.values(now?.mailConnected ?? {}).some(Boolean)) runMailScan(null, false).catch(() => {});
+      if (Object.values(now?.mailConnected ?? {}).some(Boolean)) runMailScan({}).catch(() => {});
       return { ok: true, email: session.user.email };
     })()
       .then(sendResponse)
@@ -572,9 +621,14 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       .catch((err) => sendResponse({ ok: false, reason: String(err?.message ?? err) }));
     return true;
   }
-  if (msg?.type === 'mail-connect' || msg?.type === 'mail-rescan') {
-    if (msg.provider && !PROVIDERS[msg.provider]) return false;
-    runMailScan(msg.provider ?? null, msg.type === 'mail-connect')
+  if (msg?.type === 'mail-connect' || msg?.type === 'mail-rescan' || msg?.type === 'mail-add-account') {
+    if (msg.provider && msg.provider !== 'gmail' && !PROVIDERS[msg.provider]) return false;
+    runMailScan({
+      provider: msg.provider ?? null,
+      account: msg.account ?? null,
+      interactive: msg.type !== 'mail-rescan',
+      addAccount: msg.type === 'mail-add-account',
+    })
       .then(sendResponse)
       .catch((err) => sendResponse({ ok: false, reason: String(err?.message ?? err) }));
     return true;
@@ -592,17 +646,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     return true;
   }
   if (msg?.type === 'mail-disconnect') {
-    if (!PROVIDERS[msg.provider]) return false;
-    disconnectMailbox(msg.provider).then(async () => {
-      const got = await chrome.storage.local.get(['settings', 'mailCandidates']);
-      const connected = { ...(got.settings?.mailConnected ?? {}), [msg.provider]: false };
-      if (!Object.values(connected).some(Boolean)) await chrome.alarms.clear(MAIL_ALARM);
-      await chrome.storage.local.set({
-        mailCandidates: (got.mailCandidates ?? []).filter((c) => c.provider !== msg.provider),
-        settings: { ...(got.settings ?? {}), mailConnected: connected },
-      });
-      sendResponse({ ok: true });
-    });
+    removeMailAccount(msg.provider, msg.account ?? null).then(() => sendResponse({ ok: true }));
     return true;
   }
   if (msg?.type === 'scan-gmail') {

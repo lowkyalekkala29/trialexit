@@ -8,6 +8,7 @@
  */
 import { state, esc, IS_WEB, services, serviceById, deviceZone, quickTrial, save, combinedIcs, bucket } from './state.js';
 import { logoHtml } from './brand.js';
+import { inboxesHtml } from './view-home.js';
 import { NUDGES } from './core/reminders.js';
 import { MAIL_PROVIDERS } from './config.js';
 import { downloadIcs } from './core/ics.js';
@@ -79,7 +80,7 @@ export function onboardingHtml(step) {
             <p class="hint">Finds trial confirmation emails — including trials started on your phone or in app stores. <b>Read-only</b>: we can't send, delete or change anything. Emails are read in this browser and never uploaded.</p></div>
           ${gm ? '' : `<button class="primary" data-act="mail-connect" data-provider="gmail" ${state.mail.busy ? 'disabled' : ''}>${state.mail.busy ? 'Scanning…' : 'Scan Gmail'}</button>`}
         </div>
-        ${state.mail.error ? `<p class="error">${esc(state.mail.error)}</p>` : ''}
+        ${gm ? `<div class="ob-inboxes"><p class="hint" style="margin:0 0 4px">Use more than one Gmail? Add them all — work and personal.</p>${inboxesHtml({ compact: true })}</div>` : state.mail.error ? `<p class="error">${esc(state.mail.error)}</p>` : ''}
         ${state.mail.candidates.length ? `<p class="banner">Found ${state.mail.candidates.length} trial${state.mail.candidates.length > 1 ? 's' : ''} in your Gmail — you'll confirm ${state.mail.candidates.length > 1 ? 'them' : 'it'} on the dashboard.</p>` : gm ? '<p class="hint">No trial emails found in the last 60 days. We\'ll check again when you come back.</p>' : ''}
         <div class="source-card">
           <div class="source-icon">🧩</div>
@@ -101,7 +102,7 @@ export function onboardingHtml(step) {
         </div>`,
           )
           .join('')}
-        ${state.mail.error ? `<p class="error">${esc(state.mail.error)}</p>` : ''}
+        ${conn.gmail ? `<div class="ob-inboxes"><p class="hint" style="margin:0 0 4px">Use more than one Gmail? Add them all — work and personal.</p>${inboxesHtml({ compact: true })}</div>` : state.mail.error ? `<p class="error">${esc(state.mail.error)}</p>` : ''}
         ${state.mail.candidates.length ? `<p class="banner">Found ${state.mail.candidates.length} trial${state.mail.candidates.length > 1 ? 's' : ''} in your email — you'll review ${state.mail.candidates.length > 1 ? 'them' : 'it'} on the dashboard.</p>` : ''}`;
     return frame(2, `<h1>Find the trials you already have</h1><p class="lede">Most people have one they forgot about. We'll look for trial emails so you don't have to remember.</p><div class="sources">${sources}</div>`, { next: conn.gmail || IS_WEB === false ? 'Continue' : 'Continue' });
   }

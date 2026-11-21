@@ -1,12 +1,12 @@
 {
   "name": "trialexit",
-  "version": "0.6.2",
+  "version": "0.7.0",
   "private": true,
   "type": "module",
   "description": "Never get charged for a free trial you forgot to cancel.",
   "scripts": {
     "sync": "node scripts/sync.mjs",
-    "icons": "node scripts/icons.mjs",
+    "icons": "node scripts/icons-render.cjs",
     "verify": "node scripts/verify-directory.mjs",
     "verify:write": "node scripts/verify-directory.mjs --write",
     "package": "node scripts/sync.mjs && node scripts/package.mjs",

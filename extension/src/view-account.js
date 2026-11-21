@@ -3,6 +3,7 @@
  */
 import { state, esc, IS_WEB, money, bucket, combinedIcs, deviceZone, save } from './state.js';
 import { logoHtml } from './brand.js';
+import { inboxesHtml } from './view-home.js';
 import { CLOUD_ENABLED, MAIL_PROVIDERS } from './config.js';
 import { NUDGES } from './core/reminders.js';
 import { savedTotals, derivedStatus } from './core/store.js';
@@ -86,12 +87,9 @@ function notificationsTab() {
 
 function sourcesTab() {
   if (IS_WEB) {
-    const gm = state.settings.mailConnected?.gmail;
-    return `<div class="card-block"><h2>Gmail</h2>
-      <p class="hint">Read-only. Searches only for trial and subscription emails from the last 60 days. Emails are read in your browser and never uploaded; access lasts an hour each time you allow it.</p>
-      <div class="switch-row"><span><b>Gmail</b><span class="hint">${gm ? `Connected${state.settings.mailLastScan ? ` · last scan ${esc(new Date(state.settings.mailLastScan).toLocaleString())}` : ''}` : 'Not connected'}</span></span>
-      <span class="actions"><button class="sm ${gm ? '' : 'primary'}" data-act="mail-connect" data-provider="gmail">${state.mail.busy ? 'Scanning…' : gm ? 'Scan now' : 'Connect & scan'}</button>${gm ? '<button class="sm ghost" data-act="mail-disconnect" data-provider="gmail">Disconnect</button>' : ''}</span></div>
-      ${state.mail.error ? `<p class="error">${esc(state.mail.error)}</p>` : ''}
+    return `<div class="card-block"><h2>Connected inboxes</h2>
+      <p class="hint">Connect every Gmail you use — personal and work — and see all your trials in one place. Read-only, searches only trial and subscription emails from the last 60 days, read in your browser and never uploaded.</p>
+      ${inboxesHtml()}
       ${MAIL_PROVIDERS.includes('outlook') ? '<p class="hint">Outlook scanning is in the Chrome extension.</p>' : ''}</div>
       <div class="card-block"><h2>Chrome extension</h2>
       <p class="hint">The extension catches trials the moment you sign up on any website, and scans Gmail for trials started on your phone. Sign in to it with the same account and everything syncs here.</p>
@@ -102,9 +100,8 @@ function sourcesTab() {
   return `<div class="card-block"><h2>Checkout detection</h2><div class="settings-list">
       ${sw('s-watch', state.settings.watchCheckouts !== false, 'Watch checkout pages on every site', 'Pages are checked on this device only; nothing you browse is uploaded or stored.')}</div>
       ${state.mutedHosts.length ? `<p class="hint">Never asked on: ${state.mutedHosts.map(esc).join(', ')} <button class="link" data-act="s-unmute">Ask again everywhere</button></p>` : ''}</div>
-    <div class="card-block"><h2>Email</h2><p class="hint">Read-only. Emails are read on this device and never uploaded. Rescans every 6 hours.</p>
-      ${MAIL_PROVIDERS.map((p) => `<div class="switch-row"><span><b>${PROVIDER_LABEL[p]}</b><span class="hint">${conn[p] ? 'Connected' : 'Not connected'}</span></span>${conn[p] ? `<span class="actions"><button class="sm" data-act="mail-rescan">Scan now</button><button class="sm ghost" data-act="mail-disconnect" data-provider="${p}">Disconnect</button></span>` : `<button class="sm primary" data-act="mail-connect" data-provider="${p}">${state.mail.busy === p ? 'Scanning…' : 'Connect'}</button>`}</div>`).join('')}
-      ${state.mail.error ? `<p class="error">${esc(state.mail.error)}</p>` : ''}
+    <div class="card-block"><h2>Connected inboxes</h2><p class="hint">Connect every Gmail you use — personal and work. Read-only, read on this device and never uploaded. Checked right after you sign in, then every 6 hours.</p>
+      ${inboxesHtml()}
       ${state.settings.mailLastScan ? `<p class="hint">Last scan ${esc(new Date(state.settings.mailLastScan).toLocaleString())}</p>` : ''}</div>`;
 }
 

@@ -440,3 +440,9 @@ input.switch:focus { outline: 3px solid #16a34a33; }
 .gsi-slot { min-height: 44px; display: flex; justify-content: center; }
 .banner.scan-cta { background: var(--surface); border-color: #bbf7d0; color: var(--text); }
 .scan-line { margin: -10px 0 16px; }
+.inboxes .switch-row > span:first-child { display: grid; gap: 1px; }
+.ob-inboxes { border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; }
+.inboxes .actions { flex-wrap: nowrap; }
+.banner.install { background: var(--surface); border-color: #bbf7d0; color: var(--text); }
+.banner.install .actions { flex-wrap: nowrap; }
+.ios-share { display: inline-grid; place-items: center; width: 22px; height: 22px; border: 1px solid var(--line-strong); border-radius: 6px; font-size: 13px; vertical-align: -4px; }
