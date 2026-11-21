@@ -175,6 +175,7 @@
       .pricing { display: grid; grid-template-columns: repeat(2, minmax(0, 380px)); gap: 20px; justify-content: center; }
       .tier { border: 1px solid var(--line); border-radius: 22px; padding: 30px; background: #fff; position: relative; }
       .tier.best { border: 2px solid var(--brand); box-shadow: 0 20px 50px rgba(22,163,74,.14); }
+      .tier .tag.limited { background: #f59e0b; }
       .tier .tag { position: absolute; top: -13px; left: 30px; background: var(--brand); color: #fff; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; }
       .tier h3 { font-size: 18px; }
       .tier .amt { font-size: 44px; font-weight: 800; letter-spacing: -.03em; margin: 10px 0 2px; }
@@ -474,9 +475,10 @@
             <a class="btn primary" href="app/#/signup">Get started free</a>
           </div>
           <div class="tier reveal">
-            <h3>Lifetime</h3>
+            <span class="tag limited">Limited offer</span>
+            <h3>Founders' Lifetime</h3>
             <div class="amt">₹299 <small>/ $6.99 once</small></div>
-            <div style="color:var(--muted)">Coming later — one payment, forever</div>
+            <div style="color:var(--muted)">One payment, forever. <b style="color:var(--text)">Only for the first 500 users</b> — then it's gone.</div>
             <ul>
               <li>Everything in Launch</li>
               <li>No subscription, ever</li>
