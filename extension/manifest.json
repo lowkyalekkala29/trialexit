@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "TrialExit",
-  "version": "0.8.2",
+  "version": "0.8.3",
   "description": "Stop losing money to forgotten trials and subscriptions: warned before every charge, with a one-click cancel link. Offers too.",
   "minimum_chrome_version": "116",
   "icons": {

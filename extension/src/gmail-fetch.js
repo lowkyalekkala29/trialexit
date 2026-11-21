@@ -52,7 +52,7 @@ function patient(api) {
   };
 }
 
-export async function* gmailMoneyEmails(rawApi, { seen, directory = [], maxRecent = 300, maxDirect = 100 }) {
+export async function* gmailMoneyEmails(rawApi, { seen, directory = [], maxRecent = 300, maxDirect = 100, onProgress = () => {} }) {
   const api = patient(rawApi);
   const list = async (q, max) => {
     const out = [];
@@ -72,6 +72,7 @@ export async function* gmailMoneyEmails(rawApi, { seen, directory = [], maxRecen
 
   const recent = (await list(RECENT_QUERY, maxRecent)).filter((id) => !picked.has(id) && !seen.has(`gmail:${id}`));
   for (let i = 0; i < recent.length; i += 5) {
+    onProgress({ phase: 'sweep', done: i, total: recent.length });
     if (i) await wait(150);
     const metas = await Promise.all(
       recent.slice(i, i + 5).map((id) =>
@@ -85,21 +86,30 @@ export async function* gmailMoneyEmails(rawApi, { seen, directory = [], maxRecen
     }
   }
 
+  // Read the picked emails a few at a time (still well under Gmail's limit).
+  const todo = [...picked].filter((id) => !seen.has(`gmail:${id}`));
   let read = 0;
   let failedReads = 0;
-  for (const id of picked) {
-    if (seen.has(`gmail:${id}`)) continue;
-    let msg;
+  const fetchOne = async (id) => {
     try {
-      msg = await api(`/messages/${id}?format=full`);
+      return await api(`/messages/${id}?format=full`);
     } catch (err) {
       const why = String(err?.message ?? err);
       // Lost access stops the scan; anything else skips just this one email.
       if (!RETRYABLE.test(why) && !/^gmail-\d+$/.test(why)) throw err;
       if (++failedReads > 20 && failedReads > read) throw err;
-      continue;
+      return null;
     }
-    read++;
-    yield messageToText(msg);
+  };
+  for (let i = 0; i < todo.length; i += 4) {
+    onProgress({ phase: 'read', done: i, total: todo.length });
+    if (i) await wait(100);
+    const batch = await Promise.all(todo.slice(i, i + 4).map(fetchOne));
+    for (const msg of batch) {
+      if (!msg) continue;
+      read++;
+      yield messageToText(msg);
+    }
   }
+  onProgress({ phase: 'done', done: todo.length, total: todo.length });
 }

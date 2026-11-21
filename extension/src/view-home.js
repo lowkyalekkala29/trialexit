@@ -135,6 +135,7 @@ export function dashboardHtml() {
       }</p></div>
       <div class="actions"><button data-act="mail-connect" data-provider="gmail" ${state.mail.busy ? 'disabled' : ''}>📧 ${state.mail.busy ? 'Scanning…' : 'Scan Gmail'}</button><button data-act="add-open" data-kind="subscription">+ Subscription</button><button class="primary" data-act="add-open">+ Add trial</button></div>
     </div>
+    ${progressHtml()}
     ${mailHtml()}
     ${subFound.length ? suggestionsHtml(subFound, 'Subscriptions & cancellations found in your email') : ''}
     ${!empty && !state.settings.mailConnected?.gmail && !state.mail.candidates.length ? `<div class="banner scan-cta"><div><b>Find what's quietly charging you.</b> Scan Gmail for trials, subscriptions, cancellations and offers — read-only, read on this device, never uploaded.</div><button class="primary" data-act="mail-connect" data-provider="gmail" ${state.mail.busy ? 'disabled' : ''}>${state.mail.busy ? 'Scanning…' : 'Scan my Gmail'}</button></div>` : ''}
@@ -182,6 +183,10 @@ export function scanReportHtml() {
 }
 
 /** Connected inboxes with per-inbox scan / remove, plus "Add another Gmail". */
+/** Filled in live while a scan runs. */
+export const progressHtml = () =>
+  `<p class="hint scan-progress" data-scan-progress ${state.mail.busy && state.mail.progress ? '' : 'hidden'}>${esc(state.mail.progress || '')}</p>`;
+
 export function inboxesHtml({ compact = false } = {}) {
   const accounts = state.settings.mailAccounts ?? [];
   const errs = state.settings.mailErrors ?? {};
@@ -194,7 +199,7 @@ export function inboxesHtml({ compact = false } = {}) {
         ? `<span class="error" style="font-size:12px">${esc(err === 'expired' || err === 'account-changed' || err === 'no-token' ? 'Needs you to sign in again — press Reconnect' : err === 'gmail-429' ? 'Gmail asked us to slow down — scan again in a minute' : err === 'scope-not-granted' ? 'Read access not given — press Reconnect and keep the Gmail box ticked' : `Last scan failed (${err})`)}</span>`
         : `<span class="hint">${a.lastScan ? `Checked ${esc(ago(a.lastScan))}` : 'Connected'}</span>`;
       return `<div class="switch-row inbox"><span><b>${esc(a.email)}</b><span class="hint">${label}</span>${status}</span>
-        <span class="actions"><button class="sm" data-act="mail-rescan" data-provider="${a.provider}" data-account="${esc(a.email)}" ${busy ? 'disabled' : ''}>${err ? 'Reconnect' : 'Scan'}</button>
+        <span class="actions"><button class="sm" data-act="mail-rescan" data-provider="${a.provider}" data-account="${esc(a.email)}" ${busy ? 'disabled' : ''}>${busy ? 'Scanning…' : err ? 'Reconnect' : 'Scan'}</button>
         <button class="sm ghost" data-act="mail-disconnect" data-provider="${a.provider}" data-account="${esc(a.email)}">Remove</button></span></div>`;
     })
     .join('');
@@ -202,7 +207,7 @@ export function inboxesHtml({ compact = false } = {}) {
     ? `<button class="${compact ? 'sm' : ''}" data-act="mail-add-account" data-provider="gmail" ${busy ? 'disabled' : ''}>+ Add another Gmail</button>`
     : `<button class="primary ${compact ? 'sm' : ''}" data-act="mail-connect" data-provider="gmail" ${busy ? 'disabled' : ''}>${busy ? 'Scanning…' : 'Connect Gmail'}</button>`;
   const report = state.mail.report ? `<a class="btn sm ghost" href="#/scan-report">What did the last scan check?</a>` : '';
-  return `<div class="settings-list inboxes">${rows}</div><div class="actions" style="margin-top:10px">${add}${report}</div>
+  return `<div class="settings-list inboxes">${rows}</div>${progressHtml()}<div class="actions" style="margin-top:10px">${add}${report}</div>
     ${state.mail.error ? `<p class="error">${esc(state.mail.error)}</p>` : ''}`;
 }
 

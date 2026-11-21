@@ -111,8 +111,8 @@ async function gmail(email, token, path) {
   return res.json();
 }
 
-const messages = (email, token, seen, directory) =>
-  gmailMoneyEmails((path) => gmail(email, token, path), { seen, directory });
+const messages = (email, token, seen, directory, onProgress) =>
+  gmailMoneyEmails((path) => gmail(email, token, path), { seen, directory, onProgress });
 
 /**
  * Scan Gmail inboxes and merge new suggestions into storage.
@@ -120,10 +120,10 @@ const messages = (email, token, seen, directory) =>
  *  - otherwise: scan every connected inbox that can be scanned now; the first
  *    one needing Google's window uses this click (only one popup per click),
  *    the rest are reported as needing a tap.
- * @param {{ interactive: boolean, addAccount?: boolean, account?: string|null, hint?: string, directory: any[], trials: any[] }} opts
+ * @param {{ interactive: boolean, addAccount?: boolean, account?: string|null, hint?: string, directory: any[], trials: any[], onProgress?: (p: any) => void }} opts
  * @returns {Promise<{ ok: boolean, found?: number, reason?: string, needsTap?: string[] }>}
  */
-export async function scanGmailWeb({ interactive, addAccount = false, account = null, hint, directory, trials }) {
+export async function scanGmailWeb({ interactive, addAccount = false, account = null, hint, directory, trials, onProgress = () => {} }) {
   try {
     const got = await chrome.storage.local.get(['mailSeen', 'mailCandidates', 'settings', 'session']);
     const settings = got.settings ?? {};
@@ -166,7 +166,7 @@ export async function scanGmailWeb({ interactive, addAccount = false, account = 
         continue;
       }
       try {
-        const { candidates, scanned, report: rep } = await collectCandidates('gmail', messages(acc.email, token, seen, directory), {
+        const { candidates, scanned, report: rep } = await collectCandidates('gmail', messages(acc.email, token, seen, directory, (pr) => onProgress({ ...pr, account: acc.email })), {
           directory,
           trials,
           ownEmail: acc.email,

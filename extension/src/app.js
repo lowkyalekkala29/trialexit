@@ -354,6 +354,7 @@ function mailError(provider, reason) {
   if (r === 'needs-consent') return `Press Scan ${name} to allow read-only access again.`;
   if (r === 'google-unavailable') return "Couldn't load Google's sign-in. Check your connection or ad-blocker, then try again.";
   if (r === 'expired') return `${name} sign-in expired — connect again.`;
+  if (r === 'timeout') return `The ${name} scan took too long and was stopped. Press Scan again — it continues where it left off.`;
   if (r === 'gmail-429') return `${name} asked us to slow down. Wait a minute, then press Scan again.`;
   if (r === 'no-token' || /did not approve|cancel|access_denied|user/i.test(r)) return `${name} sign-in was cancelled.`;
   return `Couldn't reach ${name} (${r}).`;
@@ -401,8 +402,30 @@ async function webMail(type, provider, { interactive, account }) {
     hint: state.session?.user?.email,
     directory: state.directory,
     trials: state.trials,
+    onProgress: showScanProgress,
   });
 }
+
+/** Live "Reading your inbox…" text while a web scan runs (no full re-render). */
+function showScanProgress(pr) {
+  const pct = pr.total ? Math.min(99, Math.round((pr.done / pr.total) * 100)) : 0;
+  state.mail.progress =
+    pr.phase === 'sweep' ? `Looking through your recent emails… ${pct}%`
+    : pr.phase === 'read' ? `Reading ${pr.total} possible matches… ${pct}%`
+    : 'Sorting what we found…';
+  document.querySelectorAll('button[data-act^="mail-"]').forEach((b) => {
+    if (b.textContent === 'Waiting for Google…') b.textContent = 'Scanning…';
+  });
+  document.querySelectorAll('[data-scan-progress]').forEach((el) => {
+    el.textContent = state.mail.progress;
+    /** @type {HTMLElement} */ (el).hidden = false;
+  });
+}
+
+/** A scan can never leave the app stuck on "Scanning…". */
+const SCAN_TIMEOUT_MS = 4 * 60_000;
+const withTimeout = (promise) =>
+  Promise.race([promise, new Promise((resolve) => setTimeout(() => resolve({ ok: false, reason: 'timeout' }), SCAN_TIMEOUT_MS))]);
 
 /**
  * @param {string} type mail-connect | mail-add-account | mail-rescan | mail-disconnect
@@ -413,16 +436,19 @@ async function webMail(type, provider, { interactive, account }) {
 async function mailCall(type, provider = null, account = null, { auto = false } = {}) {
   state.mail.busy = provider ?? true;
   state.mail.error = '';
+  state.mail.progress = type === 'mail-disconnect' ? '' : 'Connecting to Gmail…';
   if (!IS_WEB) render();
   else if (!auto)
-    document.querySelectorAll(`[data-act="${type}"]`).forEach((b) => {
+    // No re-render before Google's window opens: the click must reach it directly.
+    document.querySelectorAll('[data-act^="mail-"]').forEach((b) => {
       /** @type {HTMLButtonElement} */ (b).disabled = true;
-      b.textContent = 'Waiting for Google…';
+      if (b.dataset.act === type) b.textContent = 'Waiting for Google…';
     });
   const res = IS_WEB
-    ? await webMail(type, provider ?? 'gmail', { interactive: !auto, account })
-    : await chrome.runtime.sendMessage({ type, provider, account }).catch((err) => ({ ok: false, reason: err?.message }));
+    ? await withTimeout(webMail(type, provider ?? 'gmail', { interactive: !auto, account }))
+    : await withTimeout(chrome.runtime.sendMessage({ type, provider, account }).catch((err) => ({ ok: false, reason: err?.message })));
   state.mail.busy = false;
+  state.mail.progress = '';
   const got = await chrome.storage.local.get(['mailCandidates', 'settings', 'mailScanReport']);
   state.mail.candidates = got.mailCandidates ?? [];
   state.mail.report = got.mailScanReport ?? null;
