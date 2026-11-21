@@ -121,11 +121,30 @@ export function dashboardHtml() {
     </div>
     ${mailHtml()}
     ${!empty && !state.settings.mailConnected?.gmail && !state.mail.candidates.length ? `<div class="banner scan-cta"><div><b>Find trials you forgot about.</b> Scan your Gmail for trial confirmation emails — read-only, read on this device, never uploaded.</div><button class="primary" data-act="mail-connect" data-provider="gmail" ${state.mail.busy ? 'disabled' : ''}>${state.mail.busy ? 'Scanning…' : 'Scan my Gmail'}</button></div>` : ''}
-    ${state.settings.mailConnected?.gmail && !state.mail.candidates.length ? `<p class="hint scan-line">✓ Gmail checked ${state.settings.mailLastScan ? esc(new Date(state.settings.mailLastScan).toLocaleString()) : ''} · <button class="link" data-act="mail-rescan">Scan again</button></p>` : ''}
+    ${state.settings.mailConnected?.gmail && !state.mail.candidates.length ? scanStatusHtml() : ''}
     ${empty ? emptyStateHtml() : summaryHtml()}
     ${attention.length ? `<section class="section"><div class="section-head"><h2>Needs attention</h2><span class="n">${attention.length}</span></div><div class="cards">${attention.map(cardHtml).join('')}</div></section>` : ''}
     ${upcoming.length ? `<section class="section"><div class="section-head"><h2>Coming up</h2><span class="n">${upcoming.length}</span><a class="see-all" href="#/trials">See all trials →</a></div><div class="cards">${upcoming.slice(0, 5).map(cardHtml).join('')}</div></section>` : ''}
     ${!empty && !attention.length && !upcoming.length ? '<div class="empty">All clear — no open trials. <a href="#/savings">See what you saved →</a></div>' : ''}`;
+}
+
+function ago(iso) {
+  const ms = Date.now() - (Date.parse(iso ?? '') || 0);
+  const h = Math.floor(ms / 3_600_000);
+  if (!iso || h > 24 * 30) return 'a while ago';
+  if (h < 1) return 'just now';
+  if (h < 24) return `${h} hour${h > 1 ? 's' : ''} ago`;
+  const d = Math.floor(h / 24);
+  return `${d} day${d > 1 ? 's' : ''} ago`;
+}
+
+/** Gmail status line; becomes a prominent banner once the last scan is 6h+ old. */
+function scanStatusHtml() {
+  const last = state.settings.mailLastScan;
+  const stale = Date.now() - (Date.parse(last ?? '') || 0) > 6 * 3_600_000;
+  if (!stale) return `<p class="hint scan-line">✓ Gmail checked ${esc(ago(last))} · next check in about 6 hours · <button class="link" data-act="mail-rescan">Scan now</button></p>`;
+  return `<div class="banner scan-cta"><div><b>Check for new trials.</b> Your Gmail was last checked ${esc(ago(last))}.</div>
+    <button class="primary" data-act="mail-rescan" ${state.mail.busy ? 'disabled' : ''}>${state.mail.busy ? 'Scanning…' : 'Scan now'}</button></div>`;
 }
 
 function emptyStateHtml() {

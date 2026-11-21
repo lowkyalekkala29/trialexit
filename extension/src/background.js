@@ -26,6 +26,20 @@ import { APP_URL } from './config.js';
 
 const ALARM_PREFIX = 'trial:';
 const MAIL_ALARM = 'mail-scan';
+const SCAN_EVERY_MS = 6 * 60 * 60_000;
+
+/**
+ * Scan connected mailboxes if the last scan is 6+ hours old. Called on Chrome
+ * start-up and from the 30-minute housekeeping alarm, so a scan missed while
+ * Chrome was closed happens as soon as it's open again.
+ */
+async function scanIfDue() {
+  const { settings = {} } = await chrome.storage.local.get('settings');
+  if (!Object.values(settings.mailConnected ?? {}).some(Boolean)) return;
+  const last = Date.parse(settings.mailLastScan ?? '') || 0;
+  if (Date.now() - last < SCAN_EVERY_MS - 5 * 60_000) return;
+  await runMailScan(null, false).catch(() => {});
+}
 const SNOOZE_PREFIX = 'snooze:';
 const DIGEST_ALARM = 'daily-digest';
 const SNOOZE_MS = 3 * HOUR;
@@ -263,6 +277,7 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 });
 
 chrome.runtime.onStartup.addListener(async () => {
+  scanIfDue();
   await ensureDigest();
   await chrome.alarms.create(SYNC_ALARM, { periodInMinutes: 30 });
   scheduleSync();
@@ -274,6 +289,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'badge-refresh') {
     refreshBadge();
     resyncAlarms();
+    scanIfDue();
     return;
   }
   if (alarm.name === SYNC_ALARM) {
@@ -523,6 +539,9 @@ chrome.runtime.onMessageExternal.addListener((msg, sender, sendResponse) => {
         settings: { ...settings, ...(remote ?? {}), everSignedIn: true, accountSkipped: false, name: settings.name || remote?.name || session.user.name || '' },
       });
       await syncTrials().catch(() => {});
+      // Just signed in: look for trials straight away (if a mailbox is connected).
+      const { settings: now } = await chrome.storage.local.get('settings');
+      if (Object.values(now?.mailConnected ?? {}).some(Boolean)) runMailScan(null, false).catch(() => {});
       return { ok: true, email: session.user.email };
     })()
       .then(sendResponse)

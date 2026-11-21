@@ -253,6 +253,7 @@ async function afterSignIn(session) {
   if (!remote) pushProfile(state.settings).catch(() => {});
   await runSync();
   toast(`Signed in as ${session.user.email}`);
+  autoScanWeb(true);
   let next = null;
   try {
     const pending = JSON.parse(localStorage.getItem('trialexit:after-signin') ?? 'null');
@@ -512,9 +513,26 @@ async function boot() {
   render();
   refreshDirectory(render);
   runSync();
-  // Web: if Gmail was allowed in the last hour, quietly look for new trials.
-  if (IS_WEB && state.session && state.settings.mailConnected?.gmail && hasLiveGmailToken()) mailCall('mail-rescan');
+  autoScanWeb();
 }
+
+const SCAN_EVERY_MS = 6 * 60 * 60_000;
+const scanIsDue = () => Date.now() - (Date.parse(state.settings.mailLastScan ?? '') || 0) > SCAN_EVERY_MS - 5 * 60_000;
+
+/**
+ * Web: scan Gmail right after login and then every 6 hours while the app is
+ * open — silently when Google's access (1 hour) is still valid; otherwise the
+ * dashboard shows a one-tap "Scan now" banner (a web page can't open Google's
+ * window without a tap).
+ */
+function autoScanWeb(force = false) {
+  if (!IS_WEB || !state.session || state.session.preview || !state.settings.mailConnected?.gmail || state.mail.busy) return;
+  if ((force || scanIsDue()) && hasLiveGmailToken()) mailCall('mail-rescan');
+}
+setInterval(() => {
+  autoScanWeb();
+  if (IS_WEB && scanIsDue() && document.querySelector('.content') && !document.querySelector('.modal, #add-form, input:focus')) render();
+}, 30 * 60_000);
 
 setInterval(() => {
   if (!document.querySelector('.modal, #add-form, .ob, .auth, input:focus, textarea:focus')) render();
