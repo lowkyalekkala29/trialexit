@@ -17,7 +17,9 @@ import { authHtml, authActions, mountGoogleButton } from './view-auth.js';
 import { onboardingHtml, onboardingActions } from './view-onboarding.js';
 import { dashboardHtml, trialsHtml, addModalHtml, mailHtml, homeActions } from './view-home.js';
 import { savingsHtml, settingsHtml, helpHtml, accountActions } from './view-account.js';
-import { bucket } from './state.js';
+import { bucket, newTrial, deviceZone } from './state.js';
+import { scanGmailWeb, disconnectGmailWeb, hasLiveGmailToken } from './web-mail.js';
+import { zonedWallTimeToInstant } from './core/dates.js';
 
 const ICON = {
   home: '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
@@ -218,23 +220,88 @@ function mailError(provider, reason) {
   const r = String(reason ?? '');
   const name = PROVIDER_LABEL[provider] ?? 'Email';
   if (r === 'not-configured') return `${name} connection isn't switched on in this build yet. Use Paste email meanwhile.`;
+  if (r === 'outlook-web') return 'Outlook scanning is available in the Chrome extension. On the web, paste the email instead.';
+  if (r === 'scope-not-granted') return `To find trials, tick the box that lets TrialExit read your ${name} (read-only) on Google's screen.`;
+  if (r === 'needs-consent') return `Press Scan ${name} to allow read-only access again.`;
+  if (r === 'google-unavailable') return "Couldn't load Google's sign-in. Check your connection or ad-blocker, then try again.";
   if (r === 'expired') return `${name} sign-in expired — connect again.`;
   if (r === 'no-token' || /did not approve|cancel|access_denied|user/i.test(r)) return `${name} sign-in was cancelled.`;
   return `Couldn't reach ${name} (${r}).`;
+}
+
+/** Preview mode has no Google: show what a scan result looks like. */
+async function previewScan() {
+  const day = 864e5;
+  const iso = (d) => new Date(Date.now() + d * day).toISOString().slice(0, 10);
+  const demo = [
+    { messageId: 'gmail:demo1', provider: 'gmail', subject: 'Your free trial of YouTube Premium has started', serviceId: 'youtube-premium', region: 'IN', serviceName: 'YouTube Premium', renewsOn: iso(29), renewalMatched: new Date(Date.now() + 29 * day).toDateString().slice(4), amount: 149, currency: 'INR' },
+    { messageId: 'gmail:demo2', provider: 'gmail', subject: 'Welcome to Canva Pro — your 30-day free trial', serviceId: 'canva', region: 'IN', serviceName: 'Canva Pro', renewsOn: iso(30), renewalMatched: null, amount: 499, currency: 'INR', trialLengthDays: 30 },
+  ];
+  const got = await chrome.storage.local.get(['mailCandidates', 'settings']);
+  const known = new Set((got.mailCandidates ?? []).map((c) => c.messageId));
+  const fresh = demo.filter((c) => !known.has(c.messageId) && !state.trials.some((t) => t.serviceId === c.serviceId));
+  await chrome.storage.local.set({ mailCandidates: [...(got.mailCandidates ?? []), ...fresh], settings: { ...(got.settings ?? {}), mailConnected: { ...(got.settings?.mailConnected ?? {}), gmail: true }, mailLastScan: new Date().toISOString() } });
+  return { ok: true, found: fresh.length };
+}
+
+async function webMail(type, provider, interactive) {
+  if (provider && provider !== 'gmail') return { ok: false, reason: 'outlook-web' };
+  if (type === 'mail-disconnect') {
+    await disconnectGmailWeb();
+    return { ok: true };
+  }
+  if (!CLOUD_ENABLED) return previewScan();
+  return scanGmailWeb({ interactive, hint: state.session?.user?.email, directory: state.directory, trials: state.trials });
 }
 
 async function mailCall(type, provider = null) {
   state.mail.busy = provider ?? true;
   state.mail.error = '';
   render();
-  const res = await chrome.runtime.sendMessage({ type, provider }).catch((err) => ({ ok: false, reason: err?.message }));
+  const res = IS_WEB
+    ? await webMail(type, provider ?? 'gmail', type !== 'mail-rescan' || !hasLiveGmailToken())
+    : await chrome.runtime.sendMessage({ type, provider }).catch((err) => ({ ok: false, reason: err?.message }));
   state.mail.busy = false;
   const got = await chrome.storage.local.get(['mailCandidates', 'settings']);
   state.mail.candidates = got.mailCandidates ?? [];
   state.settings = { ...state.settings, ...pickWorkerFields(got.settings) };
-  if (!res?.ok) state.mail.error = mailError(provider, res?.reason);
+  if (!res?.ok) state.mail.error = mailError(provider ?? 'gmail', res?.reason);
   else if (res.found !== undefined) toast(res.found ? `Found ${res.found} trial${res.found > 1 ? 's' : ''} in your email.` : 'No new trials found in your email.');
   render();
+  return res;
+}
+
+/** Web has no background worker: dismiss/track happen right here. */
+async function dismissCandidate(id) {
+  if (!IS_WEB) return chrome.runtime.sendMessage({ type: 'mail-dismiss', messageId: id });
+  const got = await chrome.storage.local.get(['mailSeen', 'mailCandidates']);
+  await chrome.storage.local.set({
+    mailSeen: [...new Set([...(got.mailSeen ?? []), id])].slice(-2000),
+    mailCandidates: (got.mailCandidates ?? []).filter((c) => c.messageId !== id),
+  });
+}
+
+async function trackCandidate(c, date) {
+  if (!IS_WEB) return chrome.runtime.sendMessage({ type: 'add-trial', trial: { ...c, renewsOn: date, source: c.provider } });
+  const entry = (c.serviceId && state.directory.find((e) => e.serviceId === c.serviceId)) || null;
+  const currency = c.currency ?? (state.settings.region === 'US' ? 'USD' : 'INR');
+  const renewsAt = zonedWallTimeToInstant(date, '00:00', state.settings.timezone || deviceZone).toISOString();
+  state.trials = [
+    ...state.trials,
+    newTrial({
+      serviceId: entry?.serviceId ?? String(c.serviceName).toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      region: c.region ?? entry?.region ?? (currency === 'INR' ? 'IN' : 'US'),
+      serviceName: entry?.name ?? c.serviceName,
+      renewsAt,
+      timezone: state.settings.timezone || deviceZone,
+      amount: Math.round((Number(c.amount) || 0) * 100),
+      currency,
+      trialLengthDays: Number(c.trialLengthDays) || Math.max(1, Math.round((Date.parse(renewsAt) - Date.now()) / 864e5)),
+      source: c.provider,
+    }),
+  ];
+  await persist();
+  return { ok: true };
 }
 
 const mailActions = {
@@ -242,7 +309,7 @@ const mailActions = {
   'mail-rescan': () => mailCall('mail-rescan'),
   'mail-disconnect': (el) => mailCall('mail-disconnect', el.dataset.provider),
   'mail-dismiss': async (el) => {
-    await chrome.runtime.sendMessage({ type: 'mail-dismiss', messageId: el.dataset.id });
+    await dismissCandidate(el.dataset.id);
     state.mail.candidates = state.mail.candidates.filter((c) => c.messageId !== el.dataset.id);
     render();
   },
@@ -251,9 +318,9 @@ const mailActions = {
     const date = /** @type {HTMLInputElement|null} */ (document.querySelector(`[data-mail-date="${CSS.escape(el.dataset.id)}"]`))?.value;
     if (!c) return;
     if (!date) return toast('Set the end date first.');
-    const res = await chrome.runtime.sendMessage({ type: 'add-trial', trial: { ...c, renewsOn: date, source: c.provider } });
+    const res = await trackCandidate(c, date);
     if (!res?.ok) return toast(res?.reason ?? 'Could not save');
-    await chrome.runtime.sendMessage({ type: 'mail-dismiss', messageId: el.dataset.id });
+    await dismissCandidate(el.dataset.id);
     state.mail.candidates = state.mail.candidates.filter((x) => x.messageId !== el.dataset.id);
     state.trials = (await chrome.storage.local.get('trials')).trials ?? state.trials;
     toast(`Tracking ${c.serviceName}.`);
@@ -364,6 +431,8 @@ async function boot() {
   render();
   refreshDirectory(render);
   runSync();
+  // Web: if Gmail was allowed in the last hour, quietly look for new trials.
+  if (IS_WEB && state.session && state.settings.mailConnected?.gmail && hasLiveGmailToken()) mailCall('mail-rescan');
 }
 
 setInterval(() => {

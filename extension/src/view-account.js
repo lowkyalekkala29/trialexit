@@ -86,7 +86,14 @@ function notificationsTab() {
 
 function sourcesTab() {
   if (IS_WEB) {
-    return `<div class="card-block"><h2>Chrome extension</h2>
+    const gm = state.settings.mailConnected?.gmail;
+    return `<div class="card-block"><h2>Gmail</h2>
+      <p class="hint">Read-only. Searches only for trial and subscription emails from the last 60 days. Emails are read in your browser and never uploaded; access lasts an hour each time you allow it.</p>
+      <div class="switch-row"><span><b>Gmail</b><span class="hint">${gm ? `Connected${state.settings.mailLastScan ? ` · last scan ${esc(new Date(state.settings.mailLastScan).toLocaleString())}` : ''}` : 'Not connected'}</span></span>
+      <span class="actions"><button class="sm ${gm ? '' : 'primary'}" data-act="mail-connect" data-provider="gmail">${state.mail.busy ? 'Scanning…' : gm ? 'Scan now' : 'Connect & scan'}</button>${gm ? '<button class="sm ghost" data-act="mail-disconnect" data-provider="gmail">Disconnect</button>' : ''}</span></div>
+      ${state.mail.error ? `<p class="error">${esc(state.mail.error)}</p>` : ''}
+      <p class="hint">Outlook scanning is in the Chrome extension.</p></div>
+      <div class="card-block"><h2>Chrome extension</h2>
       <p class="hint">The extension catches trials the moment you sign up on any website, and scans Gmail &amp; Outlook for trials started on your phone. Sign in to it with the same account and everything syncs here.</p>
       <a class="btn primary" href="../#install" target="_blank" rel="noopener">Get TrialExit for Chrome</a></div>
       <div class="card-block"><h2>Paste an email</h2><p class="hint">On any device: Add trial → Paste email.</p><button data-act="add-open" data-tab="paste">Paste a confirmation email</button></div>`;

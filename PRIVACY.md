@@ -33,14 +33,19 @@ after 14 days. Turn email reminders off any time in Settings → Notifications.
 
 ## Email access (optional, Gmail and Outlook)
 
-If — and only if — you press **Connect Gmail** or **Connect Outlook**, TrialExit asks for **read-only** access
-to your mailbox (`gmail.readonly` / Microsoft Graph `Mail.Read`). It uses that access for one purpose:
+If — and only if — you press **Scan my Gmail** (web app or extension) or **Connect Outlook** (extension),
+TrialExit asks for **read-only** access to your mailbox (`gmail.readonly` / Microsoft Graph `Mail.Read`).
+Signing in never includes this — it is a separate choice. TrialExit uses that access for one purpose:
 finding emails that confirm a free trial or subscription, so they can be offered to you as trials to track.
+
+- **Web app:** access lasts about an hour each time you allow it and is used only while the page is open.
+  No long-lived access token exists, so nothing — including us — can read your mailbox later or from a server.
+- **Extension:** rescans every 6 hours while Chrome is running, so new trial emails are caught.
 
 - The extension searches only for trial and subscription phrases (e.g. "free trial", "trial ends",
   "will automatically renew") in the last 60 days.
-- Matching emails are downloaded **directly from Google / Microsoft into the extension on your device**
-  and parsed there. Email content is **never sent to any TrialExit server** or to any third party.
+- Matching emails are downloaded **directly from Google / Microsoft into your browser (the web app tab or
+  the extension) on your device** and parsed there. Email content is **never sent to any TrialExit server** or to any third party.
 - Only the result is stored locally: service name, guessed end date, price, the email's subject line and
   message ID (so the same email is not suggested twice). Email bodies are not stored.
 - Nothing is ever sent, deleted, labelled or modified in your mailbox.

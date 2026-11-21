@@ -120,6 +120,8 @@ export function dashboardHtml() {
       <button class="primary" data-act="add-open">+ Add trial</button>
     </div>
     ${mailHtml()}
+    ${!empty && !state.settings.mailConnected?.gmail && !state.mail.candidates.length ? `<div class="banner scan-cta"><div><b>Find trials you forgot about.</b> Scan your Gmail for trial confirmation emails — read-only, read on this device, never uploaded.</div><button class="primary" data-act="mail-connect" data-provider="gmail" ${state.mail.busy ? 'disabled' : ''}>${state.mail.busy ? 'Scanning…' : 'Scan my Gmail'}</button></div>` : ''}
+    ${state.settings.mailConnected?.gmail && !state.mail.candidates.length ? `<p class="hint scan-line">✓ Gmail checked ${state.settings.mailLastScan ? esc(new Date(state.settings.mailLastScan).toLocaleString()) : ''} · <button class="link" data-act="mail-rescan">Scan again</button></p>` : ''}
     ${empty ? emptyStateHtml() : summaryHtml()}
     ${attention.length ? `<section class="section"><div class="section-head"><h2>Needs attention</h2><span class="n">${attention.length}</span></div><div class="cards">${attention.map(cardHtml).join('')}</div></section>` : ''}
     ${upcoming.length ? `<section class="section"><div class="section-head"><h2>Coming up</h2><span class="n">${upcoming.length}</span><a class="see-all" href="#/trials">See all trials →</a></div><div class="cards">${upcoming.slice(0, 5).map(cardHtml).join('')}</div></section>` : ''}
@@ -134,7 +136,7 @@ function emptyStateHtml() {
     <div class="empty-ways">
       <button class="way" data-act="add-open" data-tab="pick"><b>Pick a service</b><span>Netflix, Spotify, ChatGPT… and when it ends</span></button>
       <button class="way" data-act="add-open" data-tab="paste"><b>Paste an email</b><span>We read the date and price for you</span></button>
-      ${IS_WEB ? '<a class="way" href="../#install" target="_blank" rel="noopener"><b>Get the extension</b><span>Catches trials as you sign up</span></a>' : '<button class="way" data-act="mail-connect" data-provider="gmail"><b>Scan Gmail</b><span>Find trials you already started</span></button>'}
+      <button class="way" data-act="mail-connect" data-provider="gmail"><b>Scan my Gmail</b><span>Find trials you already started — read-only, on this device</span></button>
     </div></div>`;
 }
 
@@ -170,7 +172,6 @@ export function trialsHtml() {
 /* ------------------------------------------------------------------- mail */
 
 export function mailHtml() {
-  if (IS_WEB) return '';
   const m = state.mail;
   if (!m.candidates.length) return m.error ? `<p class="error">${esc(m.error)}</p>` : '';
   return `<div class="panel found" id="mail-panel">

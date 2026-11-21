@@ -438,3 +438,5 @@ input.switch:focus { outline: 3px solid #16a34a33; }
 .auth-form details.more { display: grid; gap: 10px; }
 .auth-form details.more[open] { display: grid; gap: 10px; }
 .gsi-slot { min-height: 44px; display: flex; justify-content: center; }
+.banner.scan-cta { background: var(--surface); border-color: #bbf7d0; color: var(--text); }
+.scan-line { margin: -10px 0 16px; }

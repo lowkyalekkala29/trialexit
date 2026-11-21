@@ -7,7 +7,7 @@
  * (service, date, price, subject line) are stored.
  */
 import { GMAIL_QUERY, OUTLOOK_SEARCH, messageToText, outlookMessageToText } from './core/mail.js';
-import { parseTrialEmail } from './core/guess.js';
+import { collectCandidates } from './mail-candidates.js';
 import { OUTLOOK_CLIENT_ID } from './config.js';
 
 const MAX_MESSAGES = 40;
@@ -134,13 +134,6 @@ export const PROVIDERS = {
   outlook: { label: 'Outlook', messages: outlookMessages, disconnect: outlookDisconnect },
 };
 
-/** "Netflix <info@mailer.netflix.com>" → "Netflix" */
-export function senderName(from) {
-  const m = String(from ?? '').match(/^\s*"?([^"<]+?)"?\s*</);
-  if (m?.[1]?.trim()) return m[1].trim();
-  return String(from ?? '').split('@')[1]?.split('.').slice(-2, -1)[0] ?? 'Unknown service';
-}
-
 /**
  * @param {'gmail'|'outlook'} provider
  * @param {{ interactive: boolean, directory: any[], trials: any[], seen: Set<string> }} opts
@@ -148,39 +141,7 @@ export function senderName(from) {
 export async function scanMailbox(provider, { interactive, directory, trials, seen }) {
   const p = PROVIDERS[provider];
   if (!p) throw new Error('unknown-provider');
-  const found = new Map();
-  let scanned = 0;
-  for await (const mail of p.messages(interactive, seen)) {
-    scanned++;
-    const parsed = parseTrialEmail(mail.text, directory, new Date());
-    if (!parsed.entry && !parsed.renewalMatched && !parsed.days) continue;
-    if (parsed.renewsOn && Date.parse(parsed.renewsOn) < Date.now() - 3 * 864e5) continue;
-    const name = parsed.serviceName ?? senderName(mail.from);
-    const tracked = trials.some(
-      (t) =>
-        (t.serviceId === parsed.entry?.serviceId || t.serviceName.toLowerCase() === String(name).toLowerCase()) &&
-        ['active', 'awaiting_confirmation'].includes(t.status),
-    );
-    if (tracked) continue;
-    const key = (parsed.entry?.serviceId ?? name).toLowerCase();
-    if (found.has(key)) continue; // newest email first; keep it
-    found.set(key, {
-      messageId: `${provider}:${mail.id}`,
-      provider,
-      from: mail.from,
-      subject: mail.subject,
-      receivedAt: mail.date,
-      serviceId: parsed.entry?.serviceId ?? null,
-      region: parsed.entry?.region ?? null,
-      serviceName: name,
-      renewsOn: parsed.renewsOn,
-      renewalMatched: parsed.renewalMatched,
-      amount: parsed.price?.amount ?? null,
-      currency: parsed.price?.currency ?? null,
-      trialLengthDays: parsed.days?.days ?? null,
-    });
-  }
-  return { candidates: [...found.values()], scanned };
+  return collectCandidates(provider, p.messages(interactive, seen), { directory, trials });
 }
 
 /** @param {'gmail'|'outlook'} provider */

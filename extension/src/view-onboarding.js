@@ -70,17 +70,20 @@ export function onboardingHtml(step) {
   }
   if (step === 2) {
     const conn = s.mailConnected ?? {};
+    const gm = conn.gmail;
     const sources = IS_WEB
-      ? `<div class="source-card highlight">
-          <div class="source-icon">🧩</div>
-          <div><b>TrialExit for Chrome</b> <span class="pill ok">recommended</span>
-            <p class="hint">Watches checkout pages on every site and asks "Trial started — track it?" the moment you sign up. Also scans Gmail &amp; Outlook for trials from your phone.</p></div>
-          <a class="btn primary" href="../#install" target="_blank" rel="noopener">Get the extension</a>
+      ? `<div class="source-card highlight ${gm ? 'ok' : ''}">
+          <div class="source-icon">📧</div>
+          <div><b>Scan my Gmail</b> ${gm ? '<span class="pill ok">done</span>' : '<span class="pill ok">recommended</span>'}
+            <p class="hint">Finds trial confirmation emails — including trials started on your phone or in app stores. <b>Read-only</b>: we can't send, delete or change anything. Emails are read in this browser and never uploaded.</p></div>
+          ${gm ? '' : `<button class="primary" data-act="mail-connect" data-provider="gmail" ${state.mail.busy ? 'disabled' : ''}>${state.mail.busy ? 'Scanning…' : 'Scan Gmail'}</button>`}
         </div>
+        ${state.mail.error ? `<p class="error">${esc(state.mail.error)}</p>` : ''}
+        ${state.mail.candidates.length ? `<p class="banner">Found ${state.mail.candidates.length} trial${state.mail.candidates.length > 1 ? 's' : ''} in your Gmail — you'll confirm ${state.mail.candidates.length > 1 ? 'them' : 'it'} on the dashboard.</p>` : gm ? '<p class="hint">No trial emails found in the last 60 days. We\'ll check again when you come back.</p>' : ''}
         <div class="source-card">
-          <div class="source-icon">✉️</div>
-          <div><b>Paste a confirmation email</b><p class="hint">Works anywhere — even on your phone. We read the service, price and end date.</p></div>
-          <span class="pill">in the app</span>
+          <div class="source-icon">🧩</div>
+          <div><b>TrialExit for Chrome</b><p class="hint">Catches trials the moment you sign up on any website, and keeps checking your inbox in the background.</p></div>
+          <a class="btn" href="../#install" target="_blank" rel="noopener">Get the extension</a>
         </div>`
       : `<div class="source-card ok">
           <div class="source-icon">🛒</div>
@@ -99,7 +102,7 @@ export function onboardingHtml(step) {
           .join('')}
         ${state.mail.error ? `<p class="error">${esc(state.mail.error)}</p>` : ''}
         ${state.mail.candidates.length ? `<p class="banner">Found ${state.mail.candidates.length} trial${state.mail.candidates.length > 1 ? 's' : ''} in your email — you'll review ${state.mail.candidates.length > 1 ? 'them' : 'it'} on the dashboard.</p>` : ''}`;
-    return frame(2, `<h1>Catch trials automatically</h1><p class="lede">The best reminder is the one you didn't have to set up.</p><div class="sources">${sources}</div>`);
+    return frame(2, `<h1>Find the trials you already have</h1><p class="lede">Most people have one they forgot about. We'll look for trial emails so you don't have to remember.</p><div class="sources">${sources}</div>`, { next: conn.gmail || IS_WEB === false ? 'Continue' : 'Continue' });
   }
   if (step === 3) {
     const picked = state.ob.picked;
