@@ -38,6 +38,7 @@ Deno.serve(async (req) => {
     .catch(() => ({ entries: [] }));
 
   let sent = 0;
+  const failures: string[] = [];
   for (const r of rows ?? []) {
     if (!r.profiles?.reminder_email) continue;
     const { data: log } = await db.from('reminder_log').select('kind').eq('trial_id', r.id);
@@ -86,9 +87,13 @@ Deno.serve(async (req) => {
       }),
     });
     if (res.ok) sent++;
-    else await db.from('reminder_log').delete().eq('trial_id', r.id).eq('kind', due.kind); // retry next run
+    else {
+      // Keep the provider's reason (no keys or addresses) so failures are diagnosable.
+      failures.push(`brevo ${res.status}: ${(await res.text()).slice(0, 200)}`);
+      await db.from('reminder_log').delete().eq('trial_id', r.id).eq('kind', due.kind); // retry next run
+    }
   }
-  return Response.json({ ok: true, checked: rows?.length ?? 0, sent });
+  return Response.json({ ok: failures.length === 0, checked: rows?.length ?? 0, sent, failures });
 });
 
 function parseSender(v: string) {
