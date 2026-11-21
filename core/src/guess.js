@@ -232,7 +232,13 @@ export function extractRenewalDate(text, now = new Date(), slashOrder = 'dmy') {
       let year = y ? +y : now.getFullYear();
       let candidate = new Date(Date.UTC(year, mo, d));
       // "Dec 5" with no year, written in late December, means next year.
-      if (!y && candidate.getTime() < now.getTime() - 86_400_000) candidate = new Date(Date.UTC(++year, mo, d));
+      // No year written and the date already passed: only roll into next year
+      // across New Year (e.g. "3 Jan" read in late December). Otherwise it's a
+      // past date — a trial that already ended, not one 300 days away.
+      if (!y && candidate.getTime() < now.getTime() - 86_400_000) {
+        const next = new Date(Date.UTC(year + 1, mo, d));
+        if (next.getTime() - now.getTime() < 75 * 86_400_000) candidate = next;
+      }
       const before = src.slice(Math.max(0, m.index - 90), m.index);
       const cue = RENEWAL_CUE.test(before);
       if (!cue) continue;

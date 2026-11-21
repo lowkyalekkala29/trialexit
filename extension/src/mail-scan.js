@@ -199,7 +199,13 @@ export const PROVIDERS = {
 export async function scanMailbox(provider, { interactive, directory, trials, seen }) {
   const p = PROVIDERS[provider];
   if (!p) throw new Error('unknown-provider');
-  return collectCandidates(provider, p.messages(interactive, seen), { directory, trials });
+  const { session, settings } = await chrome.storage.local.get(['session', 'settings']);
+  return collectCandidates(provider, p.messages(interactive, seen), {
+    directory,
+    trials,
+    ownEmail: session?.user?.email,
+    ownName: settings?.name || session?.user?.name,
+  });
 }
 
 /** @param {'gmail'|'outlook'} provider */

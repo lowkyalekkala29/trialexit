@@ -52,3 +52,10 @@ test('a tie between confirmation and marketing counts as an ad', () => {
 test('real confirmation subject wins even with an upsell in the body', () => {
   assert.equal(classifyTrialEmail(mail('Your free trial has started', "You'll be charged on 5 Dec. Upgrade to annual and save 20%.")).kind, 'confirmation');
 });
+
+import { extractRenewalDate } from '../src/guess.js';
+test('a past date without a year is past, not next year', () => {
+  const now = new Date('2026-11-21T10:00:00Z');
+  assert.equal(extractRenewalDate('Your plan renews on 20 Sept', now)?.date, '2026-09-20');
+  assert.equal(extractRenewalDate('Trial ends on 3 Jan', new Date('2026-12-20T10:00:00Z'))?.date, '2027-01-03');
+});

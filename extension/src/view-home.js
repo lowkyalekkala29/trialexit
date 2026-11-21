@@ -117,7 +117,7 @@ export function dashboardHtml() {
             ? "Nothing urgent. We'll nudge you before anything charges."
             : 'Add your first trial — it takes five seconds.'
       }</p></div>
-      <button class="primary" data-act="add-open">+ Add trial</button>
+      <div class="actions"><button data-act="mail-connect" data-provider="gmail" ${state.mail.busy ? 'disabled' : ''}>📧 ${state.mail.busy ? 'Scanning…' : 'Scan Gmail'}</button><button class="primary" data-act="add-open">+ Add trial</button></div>
     </div>
     ${mailHtml()}
     ${!empty && !state.settings.mailConnected?.gmail && !state.mail.candidates.length ? `<div class="banner scan-cta"><div><b>Find trials you forgot about.</b> Scan your Gmail for trial confirmation emails — read-only, read on this device, never uploaded.</div><button class="primary" data-act="mail-connect" data-provider="gmail" ${state.mail.busy ? 'disabled' : ''}>${state.mail.busy ? 'Scanning…' : 'Scan my Gmail'}</button></div>` : ''}
@@ -180,7 +180,9 @@ export function trialsHtml() {
   });
   const tab = (k, label) => `<button role="tab" data-act="filter" data-status="${k}" aria-selected="${f.status === k}">${label} <span class="n">${counts[k]}</span></button>`;
   return `<div class="page-head"><div><h1>Trials</h1><p class="lede">Everything you're tracking, most urgent first.</p></div>
-      <div class="actions"><button data-act="ics-all">📅 Export calendar</button><button class="primary" data-act="add-open">+ Add trial</button></div></div>
+      <div class="actions"><button data-act="mail-connect" data-provider="gmail" ${state.mail.busy ? 'disabled' : ''}>📧 ${state.mail.busy ? 'Scanning…' : 'Scan Gmail'}</button><button data-act="ics-all">📅 Export calendar</button><button class="primary" data-act="add-open">+ Add trial</button></div></div>
+    ${state.mail.error ? `<p class="error">${esc(state.mail.error)}</p>` : ''}
+    ${state.mail.candidates.length ? `<p class="banner">Found ${state.mail.candidates.length} possible trial${state.mail.candidates.length > 1 ? 's' : ''} in your email — <a href="#/">review on the dashboard</a>.</p>` : ''}
     <div class="toolbar">
       <div class="tabs" role="tablist">${tab('open', 'Open')}${tab('soon', 'Ending soon')}${tab('resolved', 'Resolved')}${tab('all', 'All')}</div>
       <input type="search" id="trial-search" placeholder="Search trials" value="${esc(f.q)}" aria-label="Search trials" />

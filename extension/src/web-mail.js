@@ -109,7 +109,13 @@ export async function scanGmailWeb({ interactive, hint, directory, trials }) {
     const got = await chrome.storage.local.get(['mailSeen', 'mailCandidates', 'settings']);
     const existing = got.mailCandidates ?? [];
     const seen = new Set([...(got.mailSeen ?? []), ...existing.map((c) => c.messageId)]);
-    const { candidates } = await collectCandidates('gmail', messages(token, seen), { directory, trials });
+    const { session, settings: st } = await chrome.storage.local.get(['session', 'settings']);
+    const { candidates } = await collectCandidates('gmail', messages(token, seen), {
+      directory,
+      trials,
+      ownEmail: hint || session?.user?.email,
+      ownName: st?.name || session?.user?.name,
+    });
     const known = new Set(existing.map((c) => (c.serviceId ?? c.serviceName).toLowerCase()));
     const fresh = candidates.filter((c) => !known.has((c.serviceId ?? c.serviceName).toLowerCase()));
     const settings = got.settings ?? {};
