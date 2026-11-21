@@ -3,7 +3,7 @@
  * open on a flaky connection. Only same-origin GETs; API calls (Supabase,
  * Google) are never touched or cached.
  */
-const CACHE = 'trialexit-shell-v1';
+const CACHE = 'trialexit-shell-__APP_VERSION__';
 const SHELL = ['./', './index.html', './ui.css', './app.js', './platform.js', './manifest.webmanifest', './icons/icon-192.png'];
 
 self.addEventListener('install', (e) => {
@@ -21,7 +21,9 @@ self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
   e.respondWith(
-    fetch(req)
+    // no-cache: always ask the server whether the file changed (cheap 304s),
+    // so a new release is picked up on the next load, never a stale copy.
+    fetch(req, { cache: 'no-cache' })
       .then((res) => {
         if (res.ok) {
           const copy = res.clone();

@@ -144,13 +144,17 @@ const FAQ = [
   ['What does it cost?', 'Free during launch. Later, a one-time lifetime unlock — never a subscription.'],
 ];
 
+/** Shown in Help so anyone can tell which release they're running. */
+const APP_VERSION = (IS_WEB ? '__APP_VERSION__' : chrome.runtime.getManifest?.()?.version) ?? '';
+
 export function helpHtml() {
   return `<div class="page-head"><div><h1>Help</h1><p class="lede">Quick answers, and a real human if you need one.</p></div></div>
     <div class="card-block">${FAQ.map(([q, a]) => `<details class="faq"><summary>${esc(q)}</summary><p>${esc(a)}</p></details>`).join('')}</div>
     <div class="help-grid">
       <a class="card-block link-card" href="https://github.com/lowkyalekkala29/trialexit/issues/new?title=Broken%20cancel%20link%3A%20" target="_blank" rel="noopener"><b>Report a broken cancel link</b><span class="hint">Fixed for everyone, usually within a day</span></a>
       <a class="card-block link-card" href="https://github.com/lowkyalekkala29/trialexit/issues/new?title=Feedback%3A%20" target="_blank" rel="noopener"><b>Send feedback or request a service</b><span class="hint">We read everything</span></a>
-    </div>`;
+    </div>
+    <p class="hint" style="margin-top:18px">TrialExit ${IS_WEB ? 'web app' : 'extension'} · version ${esc(APP_VERSION)}</p>`;
 }
 
 /* ---------------------------------------------------------------- actions */

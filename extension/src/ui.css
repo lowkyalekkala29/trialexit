@@ -452,3 +452,5 @@ input.switch:focus { outline: 3px solid #16a34a33; }
 .scan-progress::before { content: ''; width: 12px; height: 12px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: te-spin .8s linear infinite; }
 .scan-progress[hidden] { display: none; }
 @keyframes te-spin { to { transform: rotate(360deg); } }
+.update-bar { position: fixed; left: 50%; transform: translateX(-50%); bottom: 20px; z-index: 60; display: flex; gap: 14px; align-items: center; background: #111827; color: #fff; padding: 10px 12px 10px 16px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.25); font-size: 14px; max-width: calc(100% - 32px); }
+@media (max-width: 860px) { .update-bar { bottom: calc(76px + env(safe-area-inset-bottom)); } }

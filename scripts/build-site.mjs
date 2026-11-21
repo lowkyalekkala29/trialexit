@@ -29,6 +29,15 @@ for (const f of ['app.js', 'state.js', 'auth.js', 'cloud.js', 'config.js', 'view
 await cp(join(repo, 'core/src'), join(app, 'core'), { recursive: true });
 await cp(join(repo, 'web'), app, { recursive: true });
 await cp(join(repo, 'extension/icons'), join(app, 'icons'), { recursive: true });
+// Stamp the release into the app so caches turn over and Help shows it.
+{
+  const { readFile: rf, writeFile: wf } = await import('node:fs/promises');
+  const v = JSON.parse(await rf(join(repo, 'extension/manifest.json'), 'utf8')).version;
+  for (const f of ['sw.js', 'index.html', 'view-account.js', 'app.js']) {
+    await wf(join(app, f), (await rf(join(app, f), 'utf8')).replaceAll('__APP_VERSION__', v));
+  }
+  await wf(join(app, 'version.json'), JSON.stringify({ version: v }));
+}
 await mkdir(join(app, 'data'), { recursive: true });
 await cp(join(repo, 'directory/directory.json'), join(app, 'data/directory.json'));
 

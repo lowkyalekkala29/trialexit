@@ -689,6 +689,30 @@ async function boot() {
   autoScanWeb();
 }
 
+/* ------------------------------------------------------- new release check */
+
+/** Web: a tab left open keeps old code; offer a one-tap reload when we ship. */
+const WEB_VERSION = '__APP_VERSION__';
+async function checkForUpdate() {
+  if (!IS_WEB || WEB_VERSION.startsWith('__') || document.getElementById('update-bar')) return;
+  try {
+    const r = await fetch(`version.json?t=${Date.now()}`, { cache: 'no-store' });
+    const { version } = await r.json();
+    if (!version || version === WEB_VERSION) return;
+    const bar = document.createElement('div');
+    bar.id = 'update-bar';
+    bar.className = 'update-bar';
+    bar.innerHTML = '<span><b>TrialExit was updated.</b> Reload to get the latest fixes.</span><button class="primary sm">Reload</button>';
+    bar.querySelector('button').addEventListener('click', () => location.reload());
+    document.body.append(bar);
+  } catch {
+    /* offline: try later */
+  }
+}
+addEventListener('focus', checkForUpdate);
+setInterval(checkForUpdate, 10 * 60_000);
+setTimeout(checkForUpdate, 5_000);
+
 const SCAN_EVERY_MS = 6 * 60 * 60_000;
 const scanIsDue = () =>
   (state.settings.scannedWith ?? 0) < CANDIDATE_VERSION ||
