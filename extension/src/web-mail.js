@@ -150,6 +150,7 @@ export async function scanGmailWeb({ interactive, addAccount = false, account = 
     const ownName = settings.name || got.session?.user?.name || '';
     const fresh = [];
     const needsTap = [];
+    let scannedTotal = 0;
     for (const acc of targets) {
       let token = live(acc.email);
       if (!token && interactive && !popupUsed) {
@@ -168,12 +169,13 @@ export async function scanGmailWeb({ interactive, addAccount = false, account = 
         continue;
       }
       try {
-        const { candidates } = await collectCandidates('gmail', messages(acc.email, token, seen), {
+        const { candidates, scanned } = await collectCandidates('gmail', messages(acc.email, token, seen), {
           directory,
           trials,
           ownEmail: acc.email,
           ownName,
         });
+        scannedTotal += scanned;
         const known = new Set([...existing, ...fresh].map((c) => (c.serviceId ?? c.serviceName).toLowerCase()));
         fresh.push(...candidates.filter((c) => !known.has((c.serviceId ?? c.serviceName).toLowerCase())).map((c) => ({ ...c, account: acc.email })));
         delete errors[acc.email];
@@ -196,7 +198,7 @@ export async function scanGmailWeb({ interactive, addAccount = false, account = 
     });
     const failed = targets.length === 1 ? errors[targets[0].email] : null;
     if (failed) return { ok: false, reason: failed };
-    return { ok: true, found: fresh.length, needsTap };
+    return { ok: true, found: fresh.length, needsTap, scanned: scannedTotal };
   } catch (err) {
     return { ok: false, reason: String(err?.message ?? err) };
   }

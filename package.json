@@ -1,6 +1,6 @@
 {
   "name": "trialexit",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "private": true,
   "type": "module",
   "description": "Never get charged for a free trial you forgot to cancel.",

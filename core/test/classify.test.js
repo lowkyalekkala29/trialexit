@@ -46,7 +46,28 @@ test('deal / sale subjects are ads', () => {
 });
 
 test('a tie between confirmation and marketing counts as an ad', () => {
-  assert.equal(classifyTrialEmail(mail('Your account update', 'Upgrade now. Your trial ends on 5 Dec.')).kind, 'promo');
+  assert.equal(classifyTrialEmail(mail('Your account update', 'Upgrade now. Thanks for subscribing.')).kind, 'promo');
+});
+
+test('a "trial ending" reminder means you are on a trial', () => {
+  assert.equal(classifyTrialEmail(mail('Your account update', 'Upgrade now. Your trial ends on 5 Dec.')).kind, 'confirmation');
+});
+
+test('B2B / SaaS trial emails (TestRail style) are confirmations with a date', () => {
+  const now = new Date('2026-11-21T10:00:00Z');
+  const a = mail('Your TestRail trial is ready', 'Thanks for signing up for a 30-day TestRail trial. Your trial expires on December 21, 2026. Log in at yourcompany.testrail.io');
+  assert.equal(classifyTrialEmail(a).kind, 'confirmation');
+  const pa = parseTrialEmail(a, [], now);
+  assert.equal(pa.renewsOn, '2026-12-21');
+  assert.equal(pa.days?.days, 30);
+
+  const b = mail('Welcome to TestRail', 'Your TestRail Cloud trial has been created. Your 30 day trial lets you explore all features.');
+  assert.equal(classifyTrialEmail(b).kind, 'confirmation');
+  assert.equal(parseTrialEmail(b, [], now).renewsOn, '2026-12-21');
+});
+
+test('B2B marketing ("start your 30-day trial") is still an ad', () => {
+  assert.equal(classifyTrialEmail(mail('Start your 30-day free trial of TestRail', 'Try TestRail free for 30 days. Limited offer.')).kind, 'promo');
 });
 
 test('real confirmation subject wins even with an upsell in the body', () => {

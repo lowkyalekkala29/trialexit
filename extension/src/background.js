@@ -246,11 +246,13 @@ async function runMailScan({ provider = null, account = null, interactive = fals
   const seen = new Set([...(got.mailSeen ?? []), ...existing.map((c) => c.messageId)]);
   const ownName = settings.name || got.session?.user?.name || '';
   const fresh = [];
+  let scannedTotal = 0;
   for (const acc of targets) {
     try {
       const common = { interactive, directory: await getDirectory(), trials: await getTrials(), seen };
-      const { candidates } =
+      const { candidates, scanned } =
         acc.provider === 'gmail' ? await scanGmailAccount(acc, { ...common, ownName }) : await scanMailbox('outlook', common);
+      scannedTotal += scanned ?? 0;
       const known = new Set([...existing, ...fresh].map((c) => (c.serviceId ?? c.serviceName).toLowerCase()));
       fresh.push(...candidates.filter((c) => !known.has((c.serviceId ?? c.serviceName).toLowerCase())));
       delete errors[acc.email];
@@ -282,7 +284,7 @@ async function runMailScan({ provider = null, account = null, interactive = fals
   }
   const failed = targets.length === 1 ? errors[targets[0].email] : null;
   if (failed) return { ok: false, reason: failed };
-  return { ok: true, found: fresh.length, accounts: targets.length };
+  return { ok: true, found: fresh.length, accounts: targets.length, scanned: scannedTotal };
 }
 
 async function removeMailAccount(provider, email) {

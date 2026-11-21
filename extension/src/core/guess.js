@@ -36,6 +36,8 @@ function clauseAround(text, index, radius = 130) {
 /** Ordered most-specific first. Multipliers convert weeks/months to days. */
 const DAY_PATTERNS = [
   { re: /(\d{1,3})[\s-]*day(?:s)?\s+(?:free\s+)?(?:trial|free|on\s+us|risk[-\s]?free)/i, conf: /** @type {Confidence} */ ('high'), mult: 1 },
+  // "30-day TestRail trial", "14-day Pro plan trial" — product name in between
+  { re: /(\d{1,3})[\s-]*day(?:s)?\s+(?:[\w.+-]+\s+){1,3}trial\b/i, conf: /** @type {Confidence} */ ('medium'), mult: 1 },
   { re: /(?:free\s+)?trial[^.\n]{0,40}?(\d{1,3})\s*[- ]?day(?:s)?/i, conf: /** @type {Confidence} */ ('high'), mult: 1 },
   { re: /(\d{1,3})[-\s]?days?[^.\n]{0,25}(?:free|on\s+us)/i, conf: /** @type {Confidence} */ ('medium'), mult: 1 },
   { re: /first\s+(\d{1,3})\s+days/i, conf: /** @type {Confidence} */ ('medium'), mult: 1 },
@@ -295,6 +297,11 @@ export function parseTrialEmail(text, directory, now = new Date()) {
  * ------------------------------------------------------------------------- */
 
 const CONFIRM_SIGNALS = [
+  // B2B / SaaS wording: "Your TestRail trial is ready", "trial has been created"
+  /\b(?:your\s+)?(?:[\w.+-]+\s+){0,3}trial\s+(?:account\s+|workspace\s+|instance\s+|site\s+)?(?:is\s+(?:now\s+)?(?:ready|live|set\s+up)|has\s+been\s+(?:created|activated|set\s+up|extended))/i,
+  /\btrial\s+(?:will\s+)?(?:expire|expires|ends?|end)\s+(?:on|in)\b/i,
+  /\byour\s+(?!free\b)[\w.+-]+(?:\s+[\w.+-]+){0,2}\s+trial\b/i,
+  /\b(?:signing|signed)\s+up\s+for\s+(?:a|the|your)\s+(?:\d+[-\s]?day\s+)?(?:free\s+)?(?:[\w.+-]+\s+){0,2}trial\b/i,
   /\b(?:your\s+)?(?:free\s+)?trial\s+(?:has\s+)?(?:started|begun|begins\s+(?:today|now)|is\s+(?:now\s+)?active|activated|is\s+confirmed)/i,
   /\byour\s+(?:free\s+)?trial\s+(?:of\s+[^.\n]{1,40}\s+)?(?:ends|expires|will\s+end|is\s+ending|runs\s+until)/i,
   /\bwelcome\s+to\s+your\s+(?:free\s+)?trial\b/i,

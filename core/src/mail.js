@@ -6,9 +6,14 @@
 const PHRASES = [
   'free trial',
   'trial ends',
+  'trial expires',
+  'trial will expire',
   'trial period',
   'your trial',
   'trial has started',
+  'trial is ready',
+  'trial account',
+  'day trial',
   'subscription confirmation',
   'will automatically renew',
   "you'll be charged",
@@ -19,8 +24,12 @@ const PHRASES = [
 export const OUTLOOK_SEARCH = PHRASES.map((p) => `"${p.replace(/'/g, '')}"`).join(' OR ');
 
 /** Search used both by the API scan and the "open Gmail search" fallback. */
-export const GMAIL_QUERY =
-  '("free trial" OR "trial ends" OR "trial period" OR "your trial" OR "trial has started" OR "subscription confirmation" OR "will automatically renew" OR "you\'ll be charged" OR "autopay") newer_than:60d -in:chats';
+/**
+ * Gmail search: any email with "trial" in the subject (catches "Your TestRail
+ * trial is ready", "Welcome to your Notion trial"…), plus confirmation phrases
+ * that appear in bodies. The on-device classifier then drops ads.
+ */
+export const GMAIL_QUERY = `(subject:trial OR ${PHRASES.map((p) => `"${p}"`).join(' OR ')}) newer_than:60d -in:chats -in:sent`;
 
 /** @param {string} data base64url */
 export function decodeBase64Url(data) {

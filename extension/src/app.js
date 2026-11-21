@@ -345,8 +345,8 @@ async function previewScan(addAccount = false) {
   const day = 864e5;
   const iso = (d) => new Date(Date.now() + d * day).toISOString().slice(0, 10);
   const demo = [
-    { v: 3, messageId: 'gmail:demo1', provider: 'gmail', subject: 'Your free trial of YouTube Premium has started', serviceId: 'youtube-premium', region: 'IN', serviceName: 'YouTube Premium', renewsOn: iso(29), renewalMatched: new Date(Date.now() + 29 * day).toDateString().slice(4), amount: 149, currency: 'INR' },
-    { v: 3, messageId: 'gmail:demo2', provider: 'gmail', subject: 'Welcome to Canva Pro — your 30-day free trial', serviceId: 'canva', region: 'IN', serviceName: 'Canva Pro', renewsOn: iso(30), renewalMatched: null, amount: 499, currency: 'INR', trialLengthDays: 30 },
+    { v: 5, messageId: 'gmail:demo1', provider: 'gmail', subject: 'Your free trial of YouTube Premium has started', serviceId: 'youtube-premium', region: 'IN', serviceName: 'YouTube Premium', renewsOn: iso(29), renewalMatched: new Date(Date.now() + 29 * day).toDateString().slice(4), amount: 149, currency: 'INR' },
+    { v: 5, messageId: 'gmail:demo2', provider: 'gmail', subject: 'Welcome to Canva Pro — your 30-day free trial', serviceId: 'canva', region: 'IN', serviceName: 'Canva Pro', renewsOn: iso(30), renewalMatched: null, amount: 499, currency: 'INR', trialLengthDays: 30 },
   ];
   const got = await chrome.storage.local.get(['mailCandidates', 'settings']);
   const known = new Set((got.mailCandidates ?? []).map((c) => c.messageId));
@@ -410,7 +410,14 @@ async function mailCall(type, provider = null, account = null, { auto = false } 
   if (!res?.ok) state.mail.error = mailError(provider ?? 'gmail', res?.reason);
   else if (res.found !== undefined && !auto) {
     const tap = res.needsTap?.length ? ` Tap Scan next to ${res.needsTap.join(', ')} to check ${res.needsTap.length > 1 ? 'those inboxes' : 'that inbox'} too.` : '';
-    toast((res.found ? `Found ${res.found} trial${res.found > 1 ? 's' : ''} in your email.` : 'No new trials found in your email.') + tap);
+    const checked = typeof res.scanned === 'number' ? res.scanned : null;
+    const none =
+      checked === 0
+        ? 'No trial-related emails in the last 60 days.'
+        : checked
+          ? `Checked ${checked} trial-related email${checked > 1 ? 's' : ''} — none look like a trial you started.`
+          : 'No new trials found in your email.';
+    toast((res.found ? `Found ${res.found} trial${res.found > 1 ? 's' : ''} in your email.` : none) + tap);
   }
   render();
   return res;
