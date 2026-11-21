@@ -11,14 +11,15 @@
 import { state, $, esc, IS_WEB, DEFAULT_SETTINGS, save, toast, pickWorkerFields, loadBundledDirectory, refreshDirectory, initials } from './state.js';
 import { normalizeDirectory } from './core/directory.js';
 import { CLOUD_ENABLED } from './config.js';
-import { getSession, completeRedirect, getProviders } from './auth.js';
+import { getSession, completeRedirect, getProviders, requestExtensionHandoff } from './auth.js';
+import { EXTENSION_ID } from './config.js';
 import { pullProfile, pushProfile, syncTrials, PROFILE_FIELDS } from './cloud.js';
 import { authHtml, authActions, mountGoogleButton } from './view-auth.js';
 import { onboardingHtml, onboardingActions } from './view-onboarding.js';
 import { dashboardHtml, trialsHtml, addModalHtml, mailHtml, homeActions } from './view-home.js';
 import { savingsHtml, settingsHtml, helpHtml, accountActions } from './view-account.js';
 import { bucket, newTrial, deviceZone } from './state.js';
-import { scanGmailWeb, disconnectGmailWeb, hasLiveGmailToken } from './web-mail.js';
+import { scanGmailWeb, disconnectGmailWeb, hasLiveGmailToken, loadGis } from './web-mail.js';
 import { zonedWallTimeToInstant } from './core/dates.js';
 
 const ICON = {
@@ -47,6 +48,16 @@ function route() {
 
 /** Where should this user be right now? Returns a redirect or null. */
 function gate(r) {
+  if (r.path === '/connect-extension') {
+    if (state.session && !state.session.preview) return null;
+    try {
+      // localStorage (not sessionStorage): the email sign-in link opens a new tab.
+      localStorage.setItem('trialexit:after-signin', JSON.stringify({ to: '#/connect-extension', at: Date.now() }));
+    } catch {
+      /* ignore */
+    }
+    return state.settings.everSignedIn ? '#/signin' : '#/signup';
+  }
   const signedOutOk = !IS_WEB && state.settings.accountSkipped;
   const authed = Boolean(state.session) || signedOutOk;
   if (!authed) return r.path === '/signin' || r.path === '/signup' ? null : state.settings.everSignedIn ? '#/signin' : '#/signup';
@@ -93,6 +104,15 @@ function render() {
     });
     return afterRender();
   }
+  if (r.path === '/connect-extension') {
+    document.title = 'Connect the extension — TrialExit';
+    root.innerHTML = `<div class="ob"><header class="ob-top"><div class="brand"><span class="mark">✓</span><span class="brand-name">TrialExit</span></div></header>
+      <main class="ob-body"><div class="ob-card" style="text-align:center"><div class="done-mark" id="cx-mark">…</div>
+      <h1 id="cx-title">Connecting the Chrome extension…</h1><p class="lede" id="cx-body">One moment.</p>
+      <div class="actions" style="justify-content:center;margin-top:16px"><a class="btn" href="#/">Go to dashboard</a></div></div></main></div>`;
+    connectExtension();
+    return afterRender();
+  }
   if (r.path === '/onboarding') {
     document.title = 'Welcome — TrialExit';
     root.innerHTML = previewBar + onboardingHtml(Math.min(5, Math.max(1, Number(r.sub) || 1)));
@@ -116,7 +136,7 @@ function render() {
       <a class="brand" href="#/"><span class="mark">✓</span><span class="brand-name">TrialExit</span></a>
       <nav class="nav">${NAV.map(([href, label, ic]) => `<a href="${href}" class="${active(href) ? 'on' : ''}">${icon(ic)}<span>${label}</span>${label === 'Dashboard' && attention ? `<i class="dot">${attention}</i>` : ''}</a>`).join('')}</nav>
       <div class="side-foot">
-        ${!IS_WEB ? '' : '<a class="side-cta" href="../#install" target="_blank" rel="noopener"><b>Get the extension</b><span>Catch trials as you sign up</span></a>'}
+        ${!IS_WEB ? '' : '<a class="side-cta" href="../install.html" target="_blank" rel="noopener"><b>Get the extension</b><span>Catch trials as you sign up</span></a>'}
         <details class="account"><summary><span class="avatar">${esc(initials(who))}</span><span class="who"><b>${esc(who)}</b><span>${esc(u?.email ?? 'No account — this device only')}</span></span></summary>
           <div class="menu"><a href="#/settings/profile">Account settings</a>${u ? '<button data-act="s-signout">Sign out</button>' : '<a href="#/signin">Sign in</a>'}</div></details>
       </div>
@@ -180,6 +200,44 @@ async function runSync() {
   }
 }
 
+/** Website → extension: give the extension its own session for this account. */
+let connecting = false;
+async function connectExtension() {
+  if (connecting) return;
+  connecting = true;
+  const set = (mark, title, body) => {
+    const m = document.getElementById('cx-mark');
+    if (!m) return;
+    m.textContent = mark;
+    document.getElementById('cx-title').textContent = title;
+    document.getElementById('cx-body').textContent = body;
+  };
+  const ext = /** @type {any} */ (globalThis).__extChrome;
+  const send = (msg) =>
+    new Promise((resolve) => {
+      try {
+        ext.runtime.sendMessage(EXTENSION_ID, msg, (res) => resolve(ext.runtime.lastError ? null : res));
+      } catch {
+        resolve(null);
+      }
+    });
+  try {
+    const ping = ext ? await send({ type: 'ping' }) : null;
+    if (!ping?.installed) {
+      set('🧩', 'Install the extension first', 'We could not find TrialExit in this browser. Install it, then press Sign in inside the extension again.');
+      return;
+    }
+    const { tokenHash } = await requestExtensionHandoff();
+    const res = await send({ type: 'session-handoff', tokenHash });
+    if (!res?.ok) throw new Error(res?.reason ?? 'The extension did not respond');
+    set('✓', 'Extension connected', `Signed in as ${res.email}. You can close this tab — the extension now syncs with your account.`);
+  } catch (err) {
+    set('!', "Couldn't connect the extension", String(err?.message ?? err));
+  } finally {
+    connecting = false;
+  }
+}
+
 async function afterSignIn(session) {
   state.session = session;
   state.settings.everSignedIn = true;
@@ -194,7 +252,15 @@ async function afterSignIn(session) {
   if (!remote) pushProfile(state.settings).catch(() => {});
   await runSync();
   toast(`Signed in as ${session.user.email}`);
-  go(state.settings.onboarded ? '#/' : '#/onboarding/1');
+  let next = null;
+  try {
+    const pending = JSON.parse(localStorage.getItem('trialexit:after-signin') ?? 'null');
+    localStorage.removeItem('trialexit:after-signin');
+    if (pending && Date.now() - pending.at < 30 * 60_000) next = pending.to;
+  } catch {
+    /* ignore */
+  }
+  go(next ?? (state.settings.onboarded ? '#/' : '#/onboarding/1'));
 }
 
 async function onSignedOut() {
@@ -221,7 +287,8 @@ function mailError(provider, reason) {
   const name = PROVIDER_LABEL[provider] ?? 'Email';
   if (r === 'not-configured') return `${name} connection isn't switched on in this build yet. Use Paste email meanwhile.`;
   if (r === 'outlook-web') return 'Outlook scanning is available in the Chrome extension. On the web, paste the email instead.';
-  if (r === 'scope-not-granted') return `To find trials, tick the box that lets TrialExit read your ${name} (read-only) on Google's screen.`;
+  if (r === 'scope-not-granted') return `Google's window lists "View your email messages and settings" with a checkbox — tick it, then continue. Press Scan ${name} to try again.`;
+  if (r === 'popup-blocked') return `Your browser blocked Google's window. Allow pop-ups for trialexit.vercel.app (icon at the right of the address bar), then press Scan ${name} again.`;
   if (r === 'needs-consent') return `Press Scan ${name} to allow read-only access again.`;
   if (r === 'google-unavailable') return "Couldn't load Google's sign-in. Check your connection or ad-blocker, then try again.";
   if (r === 'expired') return `${name} sign-in expired — connect again.`;
@@ -257,7 +324,12 @@ async function webMail(type, provider, interactive) {
 async function mailCall(type, provider = null) {
   state.mail.busy = provider ?? true;
   state.mail.error = '';
-  render();
+  if (!IS_WEB) render();
+  else
+    document.querySelectorAll(`[data-act="${type}"]`).forEach((b) => {
+      /** @type {HTMLButtonElement} */ (b).disabled = true;
+      b.textContent = 'Waiting for Google…';
+    });
   const res = IS_WEB
     ? await webMail(type, provider ?? 'gmail', type !== 'mail-rescan' || !hasLiveGmailToken())
     : await chrome.runtime.sendMessage({ type, provider }).catch((err) => ({ ok: false, reason: err?.message }));
@@ -428,6 +500,7 @@ async function boot() {
     await chrome.storage.local.remove('pendingSeed');
   }
   lastProfile = profileSnapshot();
+  if (IS_WEB && CLOUD_ENABLED) loadGis().catch(() => {});
   render();
   refreshDirectory(render);
   runSync();

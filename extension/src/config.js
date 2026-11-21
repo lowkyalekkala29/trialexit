@@ -22,4 +22,7 @@ export const GOOGLE_CLIENT_ID = '1098958409027-m9rit0l0do0rg6ia0c8q6fp7bg85p54d.
 /** Microsoft Entra app (Outlook scan in the extension). */
 export const OUTLOOK_CLIENT_ID = '';
 
+/** Fixed extension ID (manifest "key"), same for sideloaded and store installs. */
+export const EXTENSION_ID = 'mkkpnhiokdmpjlkapkhhiifpefgjegbp';
+
 export const CLOUD_ENABLED = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);

@@ -16,7 +16,7 @@ const SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
 const TOKEN_KEY = 'trialexit:gmail-token';
 const MAX_MESSAGES = 40;
 
-function loadGis() {
+export function loadGis() {
   if (/** @type {any} */ (window).google?.accounts?.oauth2) return Promise.resolve();
   return new Promise((resolve, reject) => {
     const existing = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
@@ -47,7 +47,7 @@ function cachedToken() {
  * @param {string} [hint] the signed-in email, so Google preselects that account
  */
 export async function requestGmailAccess(hint) {
-  await loadGis();
+  if (!(/** @type {any} */ (window).google?.accounts?.oauth2)) await loadGis();
   return new Promise((resolve, reject) => {
     const client = /** @type {any} */ (window).google.accounts.oauth2.initTokenClient({
       client_id: GOOGLE_CLIENT_ID,
@@ -65,7 +65,8 @@ export async function requestGmailAccess(hint) {
         }
         resolve(resp.access_token);
       },
-      error_callback: (err) => reject(new Error(err?.type === 'popup_closed' ? 'no-token' : err?.type ?? 'no-token')),
+      error_callback: (err) =>
+        reject(new Error(err?.type === 'popup_closed' ? 'no-token' : err?.type === 'popup_failed_to_open' ? 'popup-blocked' : err?.type ?? 'no-token')),
     });
     client.requestAccessToken({ prompt: '', login_hint: hint || undefined });
   });

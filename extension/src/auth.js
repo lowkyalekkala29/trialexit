@@ -146,6 +146,27 @@ export async function makeNonce() {
   return { raw, hashed: [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, '0')).join('') };
 }
 
+/**
+ * Website → extension sign-in hand-off.
+ * Website side: ask the server for a one-time token for the signed-in user.
+ */
+export async function requestExtensionHandoff() {
+  const s = await getSession();
+  if (!s || s.preview || !CLOUD_ENABLED) throw new Error('not-signed-in');
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/extension-handoff`, {
+    method: 'POST',
+    headers: { apikey: SUPABASE_ANON_KEY, authorization: `Bearer ${s.access_token}` },
+  });
+  const d = await res.json().catch(() => ({}));
+  if (!res.ok || !d.ok) throw new Error(d.error || `handoff-${res.status}`);
+  return { email: d.email, tokenHash: d.token_hash };
+}
+
+/** Extension side: redeem the one-time token for the extension's own session. */
+export async function redeemExtensionHandoff(tokenHash) {
+  return store(toSession(await call('/verify', { type: 'magiclink', token_hash: tokenHash })));
+}
+
 /** Web only: after the OAuth redirect lands back on the app. */
 export async function completeRedirect() {
   if (IS_EXTENSION) return null;

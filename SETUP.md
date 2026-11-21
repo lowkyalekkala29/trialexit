@@ -5,6 +5,18 @@
 - Web app: https://trialexit.vercel.app/app/ (deploy again with `npm run deploy`)
 - Backend: Supabase project `tbascuhwmmuvkyscwunq`
 
+## Early-access extension (before store approval)
+
+- Install page: https://trialexit.vercel.app/install.html (zip at `/downloads/trialexit-extension.zip`)
+- Fixed extension ID: `mkkpnhiokdmpjlkapkhhiifpefgjegbp` (from the manifest `key`; private key in
+  `.secrets/extension-key.pem`, git-ignored — keep a copy somewhere safe).
+- Sign-in inside the extension hands off to the website (`#/connect-extension` → `extension-handoff`
+  function → the extension gets its own session).
+- **First Web Store upload:** use `dist/trialexit-<v>-store.zip` and add `.secrets/extension-key.pem`
+  to the zip root as `key.pem`, so the store keeps the same ID and early users keep working.
+- Gmail scanning inside the extension needs a Google OAuth client of type **Chrome Extension** with
+  Item ID `mkkpnhiokdmpjlkapkhhiifpefgjegbp`; put its client ID in `extension/manifest.json → oauth2.client_id`.
+
 ## 0. Backend (Supabase) — DONE
 
 Project `trialexit` (ref `tbascuhwmmuvkyscwunq`, Mumbai) is live:

@@ -31,6 +31,20 @@ await cp(join(repo, 'extension/icons'), join(app, 'icons'), { recursive: true })
 await mkdir(join(app, 'data'), { recursive: true });
 await cp(join(repo, 'directory/directory.json'), join(app, 'data/directory.json'));
 
+// Downloadable extension (sideload build) + install page.
+{
+  const { existsSync } = await import('node:fs');
+  const { readFile: rf } = await import('node:fs/promises');
+  const version = JSON.parse(await rf(join(repo, 'extension/manifest.json'), 'utf8')).version;
+  const zip = join(repo, 'dist', `trialexit-${version}-sideload.zip`);
+  if (existsSync(zip)) {
+    await mkdir(join(out, 'downloads'), { recursive: true });
+    await cp(zip, join(out, 'downloads', 'trialexit-extension.zip'));
+  }
+  const { writeFile: wf } = await import('node:fs/promises');
+  await wf(join(out, 'install.html'), (await rf(join(repo, 'landing/install.html'), 'utf8')).replaceAll('{{VERSION}}', version));
+}
+
 // --preview: simulated sign-in (no backend), for design reviews and demos.
 if (process.argv.includes('--preview')) {
   const { readFile, writeFile } = await import('node:fs/promises');

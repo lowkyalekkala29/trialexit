@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Install the TrialExit extension — early access</title>
+    <meta name="description" content="Install the TrialExit Chrome extension in two minutes while our Chrome Web Store listing is in review." />
+    <link rel="icon" href="icons/icon-32.png" />
+    <style>
+      :root { --bg: #f6f7f9; --surface: #fff; --line: #e4e7eb; --text: #111827; --muted: #6b7280; --brand: #16a34a; --soft: #ecfdf3; --amber: #fffbeb; }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; }
+      .wrap { max-width: 760px; margin: 0 auto; padding: 24px 16px 80px; }
+      header { display: flex; align-items: center; gap: 10px; margin-bottom: 26px; }
+      header a { display: flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; font-weight: 750; font-size: 18px; }
+      .mark { width: 30px; height: 30px; border-radius: 8px; background: var(--brand); color: #fff; display: grid; place-items: center; font-weight: 800; }
+      h1 { font-size: clamp(26px, 5vw, 36px); line-height: 1.15; letter-spacing: -.6px; margin: 0 0 10px; }
+      .lede { color: var(--muted); font-size: 18px; margin: 0 0 20px; }
+      .note { background: var(--amber); border: 1px solid #fde68a; color: #92400e; border-radius: 14px; padding: 14px 16px; font-size: 15px; margin-bottom: 24px; }
+      .note b { color: #78350f; }
+      .download { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px; margin-bottom: 28px; box-shadow: 0 1px 3px rgba(17,24,39,.06); }
+      .btn { display: inline-flex; align-items: center; gap: 8px; background: var(--brand); color: #fff; text-decoration: none; font-weight: 700; padding: 13px 20px; border-radius: 12px; font-size: 17px; border: 0; cursor: pointer; }
+      .btn.ghost { background: var(--surface); color: var(--text); border: 1px solid #d0d5db; font-size: 14px; padding: 8px 12px; font-weight: 600; }
+      .meta { color: var(--muted); font-size: 14px; }
+      ol.steps { list-style: none; padding: 0; margin: 0; counter-reset: s; display: grid; gap: 14px; }
+      ol.steps > li { counter-increment: s; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px 18px 18px 64px; position: relative; }
+      ol.steps > li::before { content: counter(s); position: absolute; left: 18px; top: 18px; width: 30px; height: 30px; border-radius: 50%; background: var(--soft); color: var(--brand); display: grid; place-items: center; font-weight: 800; }
+      ol.steps h2 { font-size: 18px; margin: 2px 0 6px; }
+      ol.steps p { margin: 6px 0; color: #374151; }
+      .os { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
+      .os div { background: var(--bg); border-radius: 10px; padding: 10px 12px; font-size: 14px; }
+      .os div > b:first-child { display: block; margin-bottom: 2px; }
+      code, kbd { background: #eef0f3; border-radius: 6px; padding: 2px 6px; font-size: .92em; }
+      .copy { display: flex; gap: 8px; align-items: center; margin: 10px 0 4px; flex-wrap: wrap; }
+      .copy code { font-size: 16px; padding: 8px 10px; }
+      /* tiny drawings of Chrome UI */
+      .mock { margin-top: 12px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; font-size: 13px; background: #fff; }
+      .mock .bar { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid var(--line); background: #fafafa; }
+      .toggle { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+      .sw { width: 34px; height: 20px; border-radius: 999px; background: #1a73e8; position: relative; }
+      .sw::after { content: ''; position: absolute; right: 3px; top: 3px; width: 14px; height: 14px; border-radius: 50%; background: #fff; }
+      .chips { display: flex; gap: 8px; padding: 10px 12px; }
+      .chip { border: 1px solid #c7d2fe; color: #1a73e8; border-radius: 6px; padding: 5px 10px; font-weight: 600; }
+      .chip.hl { outline: 3px solid #fbbf24; outline-offset: 2px; }
+      .hl-ring { outline: 3px solid #fbbf24; outline-offset: 3px; border-radius: 999px; }
+      .folder { padding: 10px 12px; display: grid; gap: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+      .folder .sel { background: #e8f0fe; border-radius: 6px; padding: 3px 6px; }
+      .ok { color: var(--brand); font-weight: 700; }
+      details { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; margin-top: 10px; }
+      summary { cursor: pointer; font-weight: 650; }
+      details p, details li { color: #374151; }
+      h3 { margin: 34px 0 10px; font-size: 20px; }
+      footer { margin-top: 40px; color: var(--muted); font-size: 14px; }
+      @media (max-width: 560px) { ol.steps > li { padding: 16px 14px 16px 54px; } ol.steps > li::before { left: 14px; } .os { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header><a href="./"><span class="mark">✓</span>TrialExit</a></header>
+
+      <h1>Install the TrialExit extension</h1>
+      <p class="lede">Two minutes, six steps. The extension spots a free trial the moment you start it, on any website, and reminds you before you're charged.</p>
+
+      <div class="note">
+        <b>Early access — this is temporary.</b> Our extension is in review on the Chrome Web Store. Until it's
+        approved, early users install it manually with the steps below. When the store version is live we'll email
+        you a one-click link. You won't lose anything: your trials are saved in your account.
+      </div>
+
+      <div class="download">
+        <a class="btn" href="downloads/trialexit-extension.zip" download>⬇ Download TrialExit for Chrome</a>
+        <span class="meta">Version {{VERSION}} · about 100 KB · works in Chrome, Edge and Brave on a computer (not on phones)</span>
+      </div>
+
+      <ol class="steps">
+        <li>
+          <h2>Unzip the file you downloaded</h2>
+          <p>Find <code>trialexit-extension.zip</code> in your Downloads folder.</p>
+          <div class="os">
+            <div><b>Windows</b>Right-click the file → <b>Extract All…</b> → <b>Extract</b>.</div>
+            <div><b>Mac</b>Double-click the file. A folder appears next to it.</div>
+          </div>
+          <p>Move the new <b>trialexit-extension</b> folder somewhere you won't delete it, like <b>Documents</b>. Chrome runs the extension from this folder, so keep it.</p>
+        </li>
+
+        <li>
+          <h2>Open Chrome's extensions page</h2>
+          <p>Copy this address, paste it into Chrome's address bar and press <kbd>Enter</kbd>:</p>
+          <div class="copy"><code id="ext-url">chrome://extensions</code><button class="btn ghost" onclick="copyUrl()">Copy</button><span class="meta" id="copied"></span></div>
+          <p class="meta">Using Edge? Use <code>edge://extensions</code>. Using Brave? Use <code>brave://extensions</code>.</p>
+        </li>
+
+        <li>
+          <h2>Turn on “Developer mode”</h2>
+          <p>Top-right corner of that page. This just lets Chrome install extensions that aren't from the store yet.</p>
+          <div class="mock"><div class="bar"><b>Extensions</b><span class="toggle">Developer mode <span class="sw hl-ring"></span></span></div></div>
+        </li>
+
+        <li>
+          <h2>Click “Load unpacked” and choose the folder</h2>
+          <p>A new row of buttons appears. Click <b>Load unpacked</b>, then select the <b>trialexit-extension</b> folder (the one you unzipped) and click <b>Select</b> / <b>Open</b>.</p>
+          <div class="mock">
+            <div class="chips"><span class="chip hl">Load unpacked</span><span class="chip">Pack extension</span><span class="chip">Update</span></div>
+            <div class="folder"><span>📁 Documents</span><span class="sel">　📁 trialexit-extension　← choose this one</span><span>　　📄 manifest.json</span></div>
+          </div>
+          <p>TrialExit now appears in the list, and its welcome page opens. <span class="ok">✓ Installed.</span></p>
+        </li>
+
+        <li>
+          <h2>Pin it to your toolbar</h2>
+          <p>Click the puzzle-piece icon 🧩 next to the address bar, then the pin 📌 next to <b>TrialExit</b>. You'll see a red number on the icon whenever a trial is about to charge.</p>
+        </li>
+
+        <li>
+          <h2>Sign in</h2>
+          <p>In the TrialExit welcome page, press <b>Sign in on trialexit.vercel.app</b>. Sign in with Google or email. The extension connects to your account automatically and your trials sync with the web app.</p>
+          <p class="meta">Prefer not to make an account? Choose “Continue without an account”. Everything still works on this computer.</p>
+        </li>
+      </ol>
+
+      <h3>That's it. Here's what happens now</h3>
+      <ul>
+        <li>Start a free trial anywhere and TrialExit asks: <b>“Trial started — track it?”</b> with the end date and price filled in.</li>
+        <li>You get a nudge <b>2 days, 1 day, 6 hours and 1 hour</b> before the charge, with a button that opens the exact cancel page.</li>
+        <li>Optional: in Settings → Trial sources, connect Gmail or Outlook to find trials you started on your phone.</li>
+      </ul>
+
+      <h3>Questions</h3>
+      <details>
+        <summary>Chrome shows “Disable developer mode extensions”. Is that a problem?</summary>
+        <p>No. Chrome shows this for any extension installed outside the store. Click the <b>×</b> or <b>Keep</b> to dismiss it. It goes away for good once you switch to the store version.</p>
+      </details>
+      <details>
+        <summary>It says “Manifest file is missing or unreadable”</summary>
+        <p>You picked the wrong folder. Choose the folder that has <code>manifest.json</code> directly inside it. On Windows, Extract All sometimes creates a folder inside another folder with the same name; pick the inner one.</p>
+      </details>
+      <details>
+        <summary>How do I update to a newer version?</summary>
+        <ol>
+          <li>Download the zip again from this page and unzip it.</li>
+          <li>Replace the contents of your old <b>trialexit-extension</b> folder with the new files.</li>
+          <li>Open <code>chrome://extensions</code> and click the circular ↻ arrow on the TrialExit card.</li>
+        </ol>
+        <p>Your trials and settings are kept.</p>
+      </details>
+      <details>
+        <summary>Is it safe?</summary>
+        <p>The extension is built from the open-source code on <a href="https://github.com/lowkyalekkala29/trialexit">GitHub</a>. It never asks for bank or card details. Pages you visit are checked on your computer for trial wording and are never uploaded. Read the <a href="privacy.html">privacy policy</a>.</p>
+      </details>
+      <details>
+        <summary>How do I remove it?</summary>
+        <p>Open <code>chrome://extensions</code> and click <b>Remove</b> on TrialExit. If you signed in, your trials stay in your account and in the web app.</p>
+      </details>
+      <details>
+        <summary>Can I use it on my phone?</summary>
+        <p>Chrome on phones doesn't support extensions. On your phone, use the <a href="app/">web app</a>: it emails you before each trial charges and can scan your Gmail.</p>
+      </details>
+
+      <footer>Stuck? <a href="https://github.com/lowkyalekkala29/trialexit/issues/new?title=Install%20help">Tell us what you see</a> and we'll help. · <a href="./">Home</a> · <a href="app/">Web app</a></footer>
+    </div>
+    <script>
+      function copyUrl() {
+        navigator.clipboard?.writeText('chrome://extensions').then(() => (document.getElementById('copied').textContent = 'Copied ✓'));
+      }
+    </script>
+  </body>
+</html>

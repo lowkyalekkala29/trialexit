@@ -20,7 +20,9 @@ import {
 
 import { scanMailbox, disconnectMailbox, PROVIDERS } from './mail-scan.js';
 import { decideActivation, pageSignals } from './core/activation.js';
-import { syncTrials } from './cloud.js';
+import { syncTrials, pullProfile } from './cloud.js';
+import { redeemExtensionHandoff, getSession } from './auth.js';
+import { APP_URL } from './config.js';
 
 const ALARM_PREFIX = 'trial:';
 const MAIL_ALARM = 'mail-scan';
@@ -501,6 +503,34 @@ async function addTrialFromDetector(input) {
   await setTrials(trials);
   return { ok: true };
 }
+
+/**
+ * Messages from the TrialExit website (externally_connectable). Chrome only
+ * delivers these from origins listed in the manifest; we check again.
+ */
+chrome.runtime.onMessageExternal.addListener((msg, sender, sendResponse) => {
+  if (!sender.origin || sender.origin !== new URL(APP_URL).origin) return false;
+  if (msg?.type === 'ping') {
+    getSession().then((s) => sendResponse({ installed: true, version: chrome.runtime.getManifest().version, signedIn: Boolean(s && !s.preview), email: s?.user?.email ?? null }));
+    return true;
+  }
+  if (msg?.type === 'session-handoff' && typeof msg.tokenHash === 'string') {
+    (async () => {
+      const session = await redeemExtensionHandoff(msg.tokenHash);
+      const remote = await pullProfile().catch(() => null);
+      const { settings = {} } = await chrome.storage.local.get('settings');
+      await chrome.storage.local.set({
+        settings: { ...settings, ...(remote ?? {}), everSignedIn: true, accountSkipped: false, name: settings.name || remote?.name || session.user.name || '' },
+      });
+      await syncTrials().catch(() => {});
+      return { ok: true, email: session.user.email };
+    })()
+      .then(sendResponse)
+      .catch((err) => sendResponse({ ok: false, reason: String(err?.message ?? err) }));
+    return true;
+  }
+  return false;
+});
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg?.type === 'analyze-email') {

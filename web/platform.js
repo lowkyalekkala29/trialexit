@@ -9,6 +9,9 @@
  * module evaluates.
  */
 (() => {
+  // Keep the browser's real `chrome` (present when the TrialExit extension is
+  // installed and lists this site in externally_connectable) for talking to it.
+  globalThis.__extChrome = globalThis.chrome?.runtime?.sendMessage ? globalThis.chrome : null;
   const STORE_KEY = 'trialexit:store';
   /** @type {Record<string, unknown>} */
   let store = {};

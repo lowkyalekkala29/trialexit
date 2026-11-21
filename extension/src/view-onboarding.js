@@ -83,7 +83,7 @@ export function onboardingHtml(step) {
         <div class="source-card">
           <div class="source-icon">🧩</div>
           <div><b>TrialExit for Chrome</b><p class="hint">Catches trials the moment you sign up on any website, and keeps checking your inbox in the background.</p></div>
-          <a class="btn" href="../#install" target="_blank" rel="noopener">Get the extension</a>
+          <a class="btn" href="../install.html" target="_blank" rel="noopener">Get the extension</a>
         </div>`
       : `<div class="source-card ok">
           <div class="source-icon">🛒</div>
