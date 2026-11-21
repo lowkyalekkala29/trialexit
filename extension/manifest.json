@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "TrialExit",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Catch every free trial — from checkout pages and your Gmail — and get nudged before it charges, with a one-click cancel link.",
   "minimum_chrome_version": "116",
   "icons": {
@@ -64,7 +64,7 @@
     }
   ],
   "oauth2": {
-    "client_id": "REPLACE_WITH_CLIENT_ID.apps.googleusercontent.com",
+    "client_id": "1098958409027-bh4evtatq6190rscme6pssibfee6bgjc.apps.googleusercontent.com",
     "scopes": [
       "https://www.googleapis.com/auth/gmail.messages.readonly"
     ]

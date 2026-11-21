@@ -8,20 +8,70 @@
  */
 import { GMAIL_QUERY, OUTLOOK_SEARCH, messageToText, outlookMessageToText } from './core/mail.js';
 import { collectCandidates } from './mail-candidates.js';
-import { OUTLOOK_CLIENT_ID } from './config.js';
+import { OUTLOOK_CLIENT_ID, GOOGLE_CLIENT_ID } from './config.js';
 
 const MAX_MESSAGES = 40;
 const LOOKBACK_MS = 60 * 864e5;
 
 /* ------------------------------------------------------------------ gmail */
 
+const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.messages.readonly';
+
+/**
+ * Fallback for people not signed into Chrome itself (chrome.identity needs a
+ * Chrome profile). Google's normal sign-in window via launchWebAuthFlow, with
+ * the web OAuth client. Background re-auth uses prompt=none, which succeeds
+ * silently while the user is still signed into Google in this browser.
+ * Requires https://<extension-id>.chromiumapp.org/ as a redirect URI on the
+ * web client.
+ */
+async function gmailTokenViaWebFlow(interactive) {
+  const { gmailWebToken: cached, session } = await chrome.storage.local.get(['gmailWebToken', 'session']);
+  if (cached?.token && cached.expiresAt > Date.now() + 60_000) return cached.token;
+  const hint = cached?.hint || session?.user?.email || '';
+  const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+  url.search = new URLSearchParams({
+    client_id: GOOGLE_CLIENT_ID,
+    response_type: 'token',
+    redirect_uri: chrome.identity.getRedirectURL(),
+    scope: GMAIL_SCOPE,
+    include_granted_scopes: 'true',
+    prompt: interactive ? 'select_account' : 'none',
+    ...(hint ? { login_hint: hint } : {}),
+  }).toString();
+  let final;
+  try {
+    final = await chrome.identity.launchWebAuthFlow({ url: url.toString(), interactive });
+  } catch {
+    throw new Error(interactive ? 'no-token' : 'expired');
+  }
+  const p = new URLSearchParams(new URL(final ?? '').hash.slice(1));
+  if (p.get('error')) throw new Error(p.get('error') === 'access_denied' ? 'no-token' : 'expired');
+  const token = p.get('access_token');
+  if (!token) throw new Error('no-token');
+  await chrome.storage.local.set({
+    gmailWebToken: { token, expiresAt: Date.now() + Number(p.get('expires_in') ?? 3600) * 1000, hint },
+  });
+  return token;
+}
+
 async function gmailToken(interactive) {
   const id = chrome.runtime.getManifest().oauth2?.client_id ?? '';
   if (!id || id.startsWith('REPLACE')) throw new Error('not-configured');
-  const res = await chrome.identity.getAuthToken({ interactive });
-  const token = typeof res === 'string' ? res : res?.token;
-  if (!token) throw new Error('no-token');
-  return token;
+  const { gmailWebToken } = await chrome.storage.local.get('gmailWebToken');
+  if (gmailWebToken) return gmailTokenViaWebFlow(interactive); // this user is on the fallback path
+  try {
+    const res = await chrome.identity.getAuthToken({ interactive });
+    const token = typeof res === 'string' ? res : res?.token;
+    if (!token) throw new Error('no-token');
+    return token;
+  } catch (err) {
+    // Not signed into Chrome (or Chrome sync sign-in disabled): use Google's normal window.
+    if (/not signed in|sign in to chrome|signin is disabled|turned off|not supported/i.test(String(err?.message ?? err))) {
+      return gmailTokenViaWebFlow(interactive);
+    }
+    throw err;
+  }
 }
 
 async function gmailApi(token, path) {
@@ -29,7 +79,9 @@ async function gmailApi(token, path) {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (res.status === 401) {
-    await chrome.identity.removeCachedAuthToken({ token });
+    await chrome.identity.removeCachedAuthToken({ token }).catch(() => {});
+    const { gmailWebToken } = await chrome.storage.local.get('gmailWebToken');
+    if (gmailWebToken) await chrome.storage.local.set({ gmailWebToken: { ...gmailWebToken, token: null, expiresAt: 0 } });
     throw new Error('expired');
   }
   if (!res.ok) throw new Error(`gmail-${res.status}`);
@@ -47,6 +99,12 @@ async function* gmailMessages(interactive, seen) {
 }
 
 async function gmailDisconnect() {
+  const { gmailWebToken } = await chrome.storage.local.get('gmailWebToken');
+  if (gmailWebToken?.token) {
+    await fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(gmailWebToken.token)}`, { method: 'POST' }).catch(() => {});
+  }
+  await chrome.storage.local.remove('gmailWebToken');
+  if (gmailWebToken) return;
   try {
     const token = await gmailToken(false);
     await chrome.identity.removeCachedAuthToken({ token });

@@ -14,8 +14,9 @@
   function → the extension gets its own session).
 - **First Web Store upload:** use `dist/trialexit-<v>-store.zip` and add `.secrets/extension-key.pem`
   to the zip root as `key.pem`, so the store keeps the same ID and early users keep working.
-- Gmail scanning inside the extension needs a Google OAuth client of type **Chrome Extension** with
-  Item ID `mkkpnhiokdmpjlkapkhhiifpefgjegbp`; put its client ID in `extension/manifest.json → oauth2.client_id`.
+- Gmail scanning inside the extension: Chrome Extension OAuth client `1098958409027-bh4e…` (in the
+  manifest) for people signed into Chrome; everyone else falls back to Google's sign-in window with the
+  web client, which needs the redirect URI `https://mkkpnhiokdmpjlkapkhhiifpefgjegbp.chromiumapp.org/`.
 
 ## 0. Backend (Supabase) — DONE
 
