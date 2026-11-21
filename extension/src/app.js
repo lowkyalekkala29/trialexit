@@ -20,6 +20,7 @@ import { dashboardHtml, trialsHtml, addModalHtml, mailHtml, homeActions } from '
 import { savingsHtml, settingsHtml, helpHtml, accountActions } from './view-account.js';
 import { bucket, newTrial, deviceZone } from './state.js';
 import { scanGmailWeb, disconnectGmailWeb, hasLiveGmailToken, loadGis } from './web-mail.js';
+import { CANDIDATE_VERSION } from './mail-candidates.js';
 import { zonedWallTimeToInstant } from './core/dates.js';
 
 const ICON = {
@@ -302,8 +303,8 @@ async function previewScan() {
   const day = 864e5;
   const iso = (d) => new Date(Date.now() + d * day).toISOString().slice(0, 10);
   const demo = [
-    { messageId: 'gmail:demo1', provider: 'gmail', subject: 'Your free trial of YouTube Premium has started', serviceId: 'youtube-premium', region: 'IN', serviceName: 'YouTube Premium', renewsOn: iso(29), renewalMatched: new Date(Date.now() + 29 * day).toDateString().slice(4), amount: 149, currency: 'INR' },
-    { messageId: 'gmail:demo2', provider: 'gmail', subject: 'Welcome to Canva Pro — your 30-day free trial', serviceId: 'canva', region: 'IN', serviceName: 'Canva Pro', renewsOn: iso(30), renewalMatched: null, amount: 499, currency: 'INR', trialLengthDays: 30 },
+    { v: 2, messageId: 'gmail:demo1', provider: 'gmail', subject: 'Your free trial of YouTube Premium has started', serviceId: 'youtube-premium', region: 'IN', serviceName: 'YouTube Premium', renewsOn: iso(29), renewalMatched: new Date(Date.now() + 29 * day).toDateString().slice(4), amount: 149, currency: 'INR' },
+    { v: 2, messageId: 'gmail:demo2', provider: 'gmail', subject: 'Welcome to Canva Pro — your 30-day free trial', serviceId: 'canva', region: 'IN', serviceName: 'Canva Pro', renewsOn: iso(30), renewalMatched: null, amount: 499, currency: 'INR', trialLengthDays: 30 },
   ];
   const got = await chrome.storage.local.get(['mailCandidates', 'settings']);
   const known = new Set((got.mailCandidates ?? []).map((c) => c.messageId));
@@ -479,6 +480,12 @@ async function boot() {
   state.tombstones = Array.isArray(got.tombstones) ? got.tombstones : [];
   state.settings = { ...DEFAULT_SETTINGS, ...(got.settings ?? {}) };
   state.mail.candidates = got.mailCandidates ?? [];
+  // Suggestions from an older scanner (e.g. before ads were filtered out):
+  // drop them and forget which emails were seen, so the next scan re-checks.
+  if (state.mail.candidates.some((c) => (c.v ?? 1) < CANDIDATE_VERSION)) {
+    state.mail.candidates = state.mail.candidates.filter((c) => (c.v ?? 1) >= CANDIDATE_VERSION);
+    await chrome.storage.local.set({ mailCandidates: state.mail.candidates, mailSeen: [] });
+  }
   state.mutedHosts = got.mutedHosts ?? [];
   state.lastSync = got.lastSync ?? null;
   // Extension users from before accounts existed keep working without one.

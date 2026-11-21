@@ -280,3 +280,50 @@ export function parseTrialEmail(text, directory, now = new Date()) {
     found: Boolean(byName || days || price || renewal),
   };
 }
+
+/* ---------------------------------------------------------------------------
+ * Confirmation vs advertisement.
+ * "Your free trial has started" is a trial the user started. "Try Premium free
+ * for 1 month" is marketing. Inbox scanning must only surface the first kind,
+ * or the product fills up with trials that never existed.
+ * ------------------------------------------------------------------------- */
+
+const CONFIRM_SIGNALS = [
+  /\b(?:your\s+)?(?:free\s+)?trial\s+(?:has\s+)?(?:started|begun|begins\s+(?:today|now)|is\s+(?:now\s+)?active|activated|is\s+confirmed)/i,
+  /\byour\s+(?:free\s+)?trial\s+(?:of\s+[^.\n]{1,40}\s+)?(?:ends|expires|will\s+end|is\s+ending|runs\s+until)/i,
+  /\bwelcome\s+to\s+your\s+(?:free\s+)?trial\b/i,
+  /\byou(?:'|’)?re\s+(?:now\s+)?(?:on|in)\s+(?:a|your|the)\s+(?:free\s+)?trial\b/i,
+  /\byou(?:'|’)?ll\s+be\s+(?:charged|billed)\s+(?:on|starting|from|after)\b|\byou\s+will\s+be\s+(?:charged|billed)\s+(?:on|starting|from|after)\b/i,
+  /\b(?:first|next)\s+(?:payment|charge|billing(?:\s+date)?)\s+(?:is|will\s+be|of|on|date)\b/i,
+  /\bsubscription\s+(?:confirmation|confirmed|is\s+active)\b/i,
+  /\bthanks?\s+(?:you\s+)?for\s+(?:subscribing|starting\s+your|signing\s+up\s+for\s+(?:a|your|the)\s+(?:free\s+)?trial)/i,
+  /\b(?:auto\s?pay|mandate|e-?mandate)\s+(?:has\s+been\s+|was\s+|is\s+)?(?:set\s+up|created|registered|approved|activated)/i,
+  /\byour\s+(?:free\s+)?trial\s+of\b/i,
+  /\breceipt\b|\border\s+(?:confirmation|summary|number)\b|\binvoice\b/i,
+];
+
+const PROMO_SIGNALS = [
+  /\btry\s+(?:[\w+-]+\s+){0,3}(?:for\s+)?free\b/i,
+  /\bstart\s+(?:your|a)\s+(?:\d+[-\s]?(?:day|week|month)\s+)?free\s+trial\b/i,
+  /\b(?:claim|unlock|redeem)\s+(?:your|a|an)\b/i,
+  /\bget\s+(?:\d+|one|two|three)\s+(?:days?|weeks?|months?)\s+(?:free|of\b)/i,
+  /\blimited[-\s]time\b|\boffer\s+(?:ends|expires)\b|\bdon(?:'|’)?t\s+miss\b|\blast\s+chance\b/i,
+  /\b(?:special|exclusive|introductory)\s+offer\b|\b\d{1,2}\s?%\s+off\b/i,
+  /\bupgrade\s+(?:now|today|to)\b/i,
+  /\bwe\s+miss\s+you\b|\bcome\s+back\b/i,
+];
+
+/**
+ * @param {string} text  subject + sender + body
+ * @returns {{ kind: 'confirmation'|'promo'|'unknown', confirm: number, promo: number }}
+ */
+export function classifyTrialEmail(text) {
+  const src = String(text ?? '');
+  // The subject line (first line) says the most about intent: weigh it double.
+  const subject = src.split('\n', 1)[0] ?? '';
+  const count = (list, s) => list.reduce((n, re) => n + (re.test(s) ? 1 : 0), 0);
+  const confirm = count(CONFIRM_SIGNALS, src) + count(CONFIRM_SIGNALS, subject);
+  const promo = count(PROMO_SIGNALS, src) + count(PROMO_SIGNALS, subject);
+  const kind = confirm > 0 && confirm >= promo ? 'confirmation' : promo > 0 ? 'promo' : 'unknown';
+  return { kind, confirm, promo };
+}

@@ -2,7 +2,10 @@
  * Email → trial suggestions. No browser-extension APIs here, so the web app
  * can use it too. Email content is only ever handled in memory, on the device.
  */
-import { parseTrialEmail } from './core/guess.js';
+import { parseTrialEmail, classifyTrialEmail } from './core/guess.js';
+
+/** Bump when the rules change: older suggestions are discarded and re-scanned. */
+export const CANDIDATE_VERSION = 2;
 
 /** "Netflix <info@mailer.netflix.com>" → "Netflix" */
 export function senderName(from) {
@@ -25,7 +28,13 @@ export async function collectCandidates(provider, messages, { directory, trials 
   let scanned = 0;
   for await (const mail of messages) {
     scanned++;
-    const parsed = parseTrialEmail(mail.text, directory, new Date());
+    // Only emails confirming a trial the user started — not "Try Premium free" ads.
+    const { kind } = classifyTrialEmail(mail.text);
+    if (kind === 'promo') continue;
+    // Count trial length from the day the email arrived, not from today.
+    const received = mail.date ? new Date(mail.date) : new Date();
+    const parsed = parseTrialEmail(mail.text, directory, received);
+    if (kind === 'unknown' && !parsed.renewalMatched) continue;
     if (!parsed.entry && !parsed.renewalMatched && !parsed.days) continue;
     if (parsed.renewsOn && Date.parse(parsed.renewsOn) < Date.now() - 3 * 864e5) continue;
     const name = parsed.serviceName ?? senderName(mail.from);
@@ -38,6 +47,7 @@ export async function collectCandidates(provider, messages, { directory, trials 
     const key = (parsed.entry?.serviceId ?? name).toLowerCase();
     if (found.has(key)) continue; // newest email first; keep it
     found.set(key, {
+      v: CANDIDATE_VERSION,
       messageId: `${provider}:${mail.id}`,
       provider,
       from: mail.from,
